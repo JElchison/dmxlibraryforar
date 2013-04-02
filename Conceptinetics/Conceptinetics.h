@@ -45,6 +45,17 @@
 // Uncomment to enable interbyte gaps
 // #define DMX_IBG				    10      // Interbyte gap
 
+// Speed your Arduino is running on in Hz.
+#define F_OSC 				16000000UL
+
+// DMX Baudrate, this should be 25000
+#define DMX_BAUD_RATE 		250000
+
+// The baudrate used to automaticly generate a break within
+// your ISR.. make it lower to generate longer breaks
+#define DMX_BREAK_RATE 	 	99900       
+
+
 namespace dmx 
 {
     typedef enum dmxState 

@@ -34,11 +34,6 @@
 #include <avr/interrupt.h>
 #include <avr/io.h>
 
-#define F_OSC 				16000000UL
-#define DMX_BAUD_RATE 		250000
-#define DMX_BREAK_RATE 	 	99900       // for ISR Generated Break only
-
-
 #include <util/delay.h>
 
 #if defined (USART__TXC_vect)
