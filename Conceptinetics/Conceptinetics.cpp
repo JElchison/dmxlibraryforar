@@ -326,7 +326,7 @@ DMX_Slave::DMX_Slave ( DMX_FrameBuffer &buffer, int readEnablePin )
 }
 
 DMX_Slave::DMX_Slave ( uint16_t nrChannels, int readEnablePin )
-: m_frameBuffer ( nrChannels ), 
+: m_frameBuffer ( nrChannels + 1 ), 
   m_re_pin ( readEnablePin ),
   m_startAddress ( 1 )
 {
