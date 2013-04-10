@@ -22,6 +22,8 @@
 
   - Arduino UNO R3 using a CTC-DRA-13-1 ISOLATED DMX-RDM SHIELD 
   - Arduino MEGA2560 R3 using a CTC-DRA-13-1 ISOLATED DMX-RDM SHIELD 
+
+  - CTC-DRA-12-1 is the Non-isolated costs effective DMX-RDM shield 
 */
 
 
@@ -31,6 +33,8 @@
 #include <Arduino.h>
 #include <inttypes.h>
 
+#include "Rdm_Uid.h"
+#include "Rdm_Defines.h"
 
 #define DMX_MAX_FRAMESIZE       513     // Startbyte + 512 Slots
 #define DMX_MIN_FRAMESIZE       2       // Startbyte + 1 Slot
@@ -42,35 +46,62 @@
 #define DMX_START_CODE          0x0     // Start code for a DMX frame
 #define RDM_START_CODE          0xcc    // Start code for a RDM frame
 
-// Uncomment to enable interbyte gaps
+// Uncomment to enable interbyte gaps (Interslot times ) (avg < 76uSec) ... 
+// mimum is zero according to specification
 // #define DMX_IBG				    10      // Interbyte gap
 
 // Speed your Arduino is running on in Hz.
-#define F_OSC 				16000000UL
+#define F_OSC 				    16000000UL
 
 // DMX Baudrate, this should be 25000
-#define DMX_BAUD_RATE 		250000
+#define DMX_BAUD_RATE 		    250000
 
 // The baudrate used to automaticly generate a break within
 // your ISR.. make it lower to generate longer breaks
-#define DMX_BREAK_RATE 	 	99900       
+#define DMX_BREAK_RATE 	 	    99900       
+
+#define RDM_HDR_LEN             24      // RDM Message header length ** fixed
+#define RDM_PD_MAXLEN           32      // RDM Maximum parameter data length 1 - 231
 
 
 namespace dmx 
 {
-    typedef enum dmxState 
+    enum dmxState 
 	{
-		dmxIdle,
-		dmxBreak,
-        dmxManualBreak,
-		dmxStartByte,
-        dmxFrameDetected,
-		dmxRecordData,
-		dmxData
-		};
+        dmxUnknown,
+        dmxStartByte,
+        dmxWaitStartAddress,
+        dmxData,
+        dmxFrameReady,
+	};
 };
 
-class DMX_FrameBuffer
+namespace rdm
+{
+    enum rdmState
+    {
+        rdmUnknown,
+        rdmStartByte,
+        rdmSubStartCode,
+        rdmMessageLength,
+        rdmData,
+        rdmChecksumHigh,
+        rdmChecksumLow,
+        rdmFrameReady,
+    };
+}
+
+struct IFrameBuffer
+{
+        uint16_t    getBufferSize   ( void );        
+
+        uint8_t     getSlotValue    ( uint16_t index );
+        void        setSlotValue    ( uint16_t index, uint8_t value );
+
+        uint8_t     &operator[]     ( uint16_t index );    
+};
+
+class DMX_FrameBuffer : IFrameBuffer
 {
     public:
         //
@@ -97,6 +128,9 @@ class DMX_FrameBuffer
 };
 
 
+//
+// DMX Master controller
+//
 class DMX_Master
 {
     public:
@@ -147,7 +181,10 @@ class DMX_Master
 };
 
 
-class DMX_Slave
+//
+// DMX Slave controller
+//
+class DMX_Slave : DMX_FrameBuffer
 {
     public:
         DMX_Slave ( DMX_FrameBuffer &buffer, int readEnablePin = -1 );
@@ -168,17 +205,98 @@ class DMX_Slave
         uint16_t getStartAddress ( void );
         void     setStartAddress ( uint16_t );
 
+
+        // Process incoming byte from USART
+        bool processIncoming   ( uint8_t val, bool first = false );
+
     protected:
-        // Startcode is default set to record dmx frames but
-        // can be used using this function.
-        // This is intended for future use
-        void setStartCode ( uint8_t value = DMX_START_CODE ); 
 
 
     private:
-        DMX_FrameBuffer m_frameBuffer;
         int             m_re_pin;
         uint16_t        m_startAddress;     // Slave start address
+        dmx::dmxState   m_state;
+};
+
+
+union RDM_Message
+{
+    uint8_t         d[ RDM_HDR_LEN + RDM_PD_MAXLEN ];
+    struct
+    {
+        uint8_t     startCode;        // 0        SC_RDM
+        uint8_t     subStartCode;     // 1        SC_SUB_MESSAGE
+        uint8_t     msgLength;        // 2        Range 24 - 255
+        RDM_Uid     dstUid();           // 3-8      Destination UID
+        RDM_Uid     srcUid();           // 9-14     Source UID (sender)
+        uint8_t     TN;               // 15       Transaction number
+        uint8_t     portId;           // 16       Port ID / Response type
+        uint8_t     msgCount;         // 17
+        uint16_t    subDevice;        // 18,19    0=root, 0xffff=all
+        uint8_t     CC;               // 20       GET_COMMAND
+        uint16_t    PID;              // 21,22    Parameter ID
+        uint8_t     PDL;              // 23       Parameter Data length 1-231 
+
+        uint8_t     PD[RDM_PD_MAXLEN];    // Parameter Data ... variable length 
+    } msg;
+};
+
+union RDM_Checksum
+{
+    uint16_t checksum;
+    struct
+    {
+        uint8_t csl;
+        uint8_t csh;
+    };
+};
+
+class RDM_FrameBuffer : IFrameBuffer
+{
+    public:
+        //
+        // Constructor
+        //
+        RDM_FrameBuffer     ( void ) {};
+        ~RDM_FrameBuffer    ( void ) {};
+
+        uint16_t getBufferSize ( void );        
+
+        uint8_t getSlotValue ( uint16_t index );
+        void    setSlotValue ( uint16_t index, uint8_t value );
+        void    clear ( void );        
+
+        uint8_t &operator[] ( uint16_t index );
+
+       
+        // Process incoming byte from USART
+        bool processIncoming   ( uint8_t val, bool first = false );
+
+    private:
+        rdm::rdmState   m_state;       // State for pushing the message in
+        RDM_Message     m_msg;
+        RDM_Checksum    m_csRecv;      // Checksum received in rdm message
+        RDM_Checksum    m_csCalc;      // Calculared checksum
+};
+
+//
+// RDM_Responder 
+//
+class RDM_Responder : public RDM_FrameBuffer
+{
+    public:
+        //
+        // m        = manufacturer id (16bits)
+        // d1-d4    = device id (32bits)
+        //
+        RDM_Responder   ( uint16_t m, uint8_t d1, uint8_t d2, uint8_t d3, uint8_t d4 );
+        ~RDM_Responder  ( void );
+
+
+    private:
+        RDM_FrameBuffer m_buffer;   // Buffer to store RDM Data
+        RDM_Uid         m_devid;    // Holds our unique device ID
+
 };
 
 
