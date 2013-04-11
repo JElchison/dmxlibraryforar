@@ -113,11 +113,13 @@ DMX_Master      *__dmx_master;
 DMX_Slave       *__dmx_slave;
 RDM_Responder   *__rdm_responder;
 
+int8_t          __re_pin;                               // R/W Pin on shield
+
 isr::isrState   __isr_txState;                          // TX ISR state
 isr::isrState   __isr_rxState;                          // RX ISR state
 
 
-void SetISRMode ( isr::isrMode, int8_t );
+void SetISRMode ( isr::isrMode );
 
 
 DMX_FrameBuffer::DMX_FrameBuffer ( uint16_t buffer_size )
@@ -207,22 +209,22 @@ uint8_t &DMX_FrameBuffer::operator[] ( uint16_t index )
 
 DMX_Master::DMX_Master ( DMX_FrameBuffer &buffer, int readEnablePin )
 : m_frameBuffer ( buffer ), 
-  m_re_pin ( readEnablePin ),
   m_autoBreak ( 1 )                                     // Autobreak generation is default on
 {
-	pinMode ( m_re_pin, OUTPUT );		            	// Set direction to output	
-	digitalWrite ( m_re_pin, LOW ); 			        // Set shield into read (slave) mode 
     setStartCode ( DMX_START_CODE );    
+
+    __re_pin = readEnablePin;
+    ::SetISRMode ( isr::Disabled );
 }
 
 DMX_Master::DMX_Master ( uint16_t maxChannel, int readEnablePin )
 : m_frameBuffer ( maxChannel + DMX_STARTCODE_SIZE ), 
-  m_re_pin ( readEnablePin ),
   m_autoBreak ( 1 )                                     // Autobreak generation is default on
 {
-	pinMode ( m_re_pin, OUTPUT );		            	// Set direction to output	
-	digitalWrite ( m_re_pin, LOW ); 			        // Set shield into read (slave) mode    
     setStartCode ( DMX_START_CODE );
+
+    __re_pin = readEnablePin;
+    ::SetISRMode ( isr::Disabled );
 }
 
 DMX_Master::~DMX_Master ( void )
@@ -259,14 +261,14 @@ void DMX_Master::enable  ( void )
     __dmx_master = this;  
 
     if ( m_autoBreak )
-        ::SetISRMode ( isr::DMXTransmit, m_re_pin );
+        ::SetISRMode ( isr::DMXTransmit );
     else
-        ::SetISRMode ( isr::DMXTransmitManual, m_re_pin );
+        ::SetISRMode ( isr::DMXTransmitManual );
 }
 
 void DMX_Master::disable ( void )
 {
-     ::SetISRMode ( isr::Disabled, m_re_pin );
+     ::SetISRMode ( isr::Disabled );
     __dmx_master = NULL;                                // No active master
 }
 
@@ -294,7 +296,7 @@ void DMX_Master::breakAndContinue ( uint8_t breakLength_us )
         digitalWrite ( 1, HIGH );                   // END BREAK
 
         __isr_txState = isr::DmxStartByte;
-    
+   
         // TX Enable
         #if defined(UCSRC) && defined(UCSRB)
 	        UCSRB |= (1<<TXEN);								
@@ -318,34 +320,22 @@ void DMX_Master::breakAndContinue ( uint8_t breakLength_us )
 
 DMX_Slave::DMX_Slave ( DMX_FrameBuffer &buffer, int readEnablePin )
 : DMX_FrameBuffer ( buffer ), 
-  m_re_pin ( readEnablePin ),
   m_startAddress ( 1 )
 {
-    // Pin 0 and 1 is actually not possible either
-    // since those are the rx and tx pins
-    if ( m_re_pin >= 0 )
-    {
-        pinMode ( m_re_pin, OUTPUT );		            	// Set direction to output	
-	    digitalWrite ( m_re_pin, LOW ); 			        // Set shield into read (slave) mode  
-    }
-
     __dmx_slave = this;
+    __re_pin    = readEnablePin;
+
+    ::SetISRMode ( isr::Disabled );
 }
 
 DMX_Slave::DMX_Slave ( uint16_t nrChannels, int readEnablePin )
 : DMX_FrameBuffer ( nrChannels + 1 ), 
-  m_re_pin ( readEnablePin ),
   m_startAddress ( 1 )
 {
-    // Pin 0 and 1 is actually not possible either
-    // since those are the rx and tx pins
-    if ( m_re_pin >= 0 )
-    {
-        pinMode ( m_re_pin, OUTPUT );		            	// Set direction to output	
-	    digitalWrite ( m_re_pin, LOW ); 			        // Set shield into read (slave) mode  
-    }
-
     __dmx_slave = this;
+    __re_pin    = readEnablePin;
+
+    ::SetISRMode ( isr::Disabled );
 }
 
 DMX_Slave::~DMX_Slave ( void )
@@ -357,12 +347,12 @@ DMX_Slave::~DMX_Slave ( void )
 
 void DMX_Slave::enable ( void )
 {
-    ::SetISRMode ( isr::Receive, m_re_pin );
+    ::SetISRMode ( isr::Receive );
 }
 
 void DMX_Slave::disable ( void )
 {
-    ::SetISRMode ( isr::Disabled, m_re_pin );
+    ::SetISRMode ( isr::Disabled );
 }
 
 DMX_FrameBuffer &DMX_Slave::getBuffer ( void )
@@ -370,7 +360,7 @@ DMX_FrameBuffer &DMX_Slave::getBuffer ( void )
     return reinterpret_cast<DMX_FrameBuffer&>(*this);
 }
 
-uint8_t DMX_Slave::getChannelValue ( uint16_t channel )
+    uint8_t DMX_Slave::getChannelValue ( uint16_t channel )
 {
     return getSlotValue ( channel );
 }
@@ -528,11 +518,13 @@ RDM_Responder::~RDM_Responder ( void )
 
 
 
-void SetISRMode ( isr::isrMode mode, int8_t re_pin )
+void SetISRMode ( isr::isrMode mode )
 {
+    uint8_t readEnable;
 
-	DMX_UBRRH = (unsigned char)(((F_CPU + DMX_BAUD_RATE * 8L) / (DMX_BAUD_RATE * 16L) - 1)>>8);
+    DMX_UBRRH = (unsigned char)(((F_CPU + DMX_BAUD_RATE * 8L) / (DMX_BAUD_RATE * 16L) - 1)>>8);
 	DMX_UBRRL = (unsigned char) ((F_CPU + DMX_BAUD_RATE * 8L) / (DMX_BAUD_RATE * 16L) - 1);	
+
 #if defined(UCSRB) && defined (UCSRC)
     UCSRC |= (1<<UMSEL)|(3<<UCSZ0)|(1<<USBS);
 #elif defined(UCSR0B) && defined (UCSR0C)
@@ -547,26 +539,24 @@ void SetISRMode ( isr::isrMode mode, int8_t re_pin )
             #elif defined(UCSR0B)
         	    UCSR0B = 0x0;
             #endif    
-            if (re_pin > -1)
-                digitalWrite ( re_pin, LOW );       // Read mode
+            readEnable = LOW;
             break;
 
         case isr::Receive:
             // Prepare before kicking off ISR
 	        DMX_UDR             = 0x0;
 	        __isr_rxState       = isr::Idle;        
-            if ( re_pin > -1 )
-	            digitalWrite ( re_pin, LOW );       // Read mode 
+            readEnable          = LOW; 
             #if defined(UCSRB) && defined (UCSRC)
         	    UCSRB  = (1<<RXCIE)|(1<<RXEN);	
             #elif defined(UCSR0B) && defined (UCSR0C)
-        	    UCSR0B = (1<<RXCIE0)|(1<<RXEN0);       // Enable receive
+        	    UCSR0B = (1<<RXCIE0)|(1<<RXEN0);        // Enable receive
             #endif                
             break;
 
         case isr::DMXTransmit:
-            DMX_UDR = 0x0;
-            digitalWrite ( re_pin, HIGH ); 
+            DMX_UDR         = 0x0;                              
+            readEnable      = HIGH;
             __isr_txState   = isr::DmxBreak; 
             #if defined(UCSRC) && defined(UCSRB)
 	            UCSRB  = (1<<TXEN) |(1<<TXCIE);								
@@ -576,19 +566,19 @@ void SetISRMode ( isr::isrMode mode, int8_t re_pin )
             break;
 
         case isr::DMXTransmitManual:
+            DMX_UDR = 0x0;
             #if defined(UCSRB)
                 UCSRB  = 0x0; 
             #elif defined(UCSR0B)
                 UCSR0B = 0x0; 
             #endif    
-            DMX_UDR = 0x0;
-            digitalWrite ( re_pin, HIGH ); 
-             __isr_txState = isr::DmxBreakManual;
+            readEnable      = HIGH;
+             __isr_txState  = isr::DmxBreakManual;
             break;
 
         case isr::RDMTransmit:
-            DMX_UDR = 0x0;
-            digitalWrite ( re_pin, HIGH ); 
+            DMX_UDR         = 0x0;
+            readEnable      = HIGH;
             __isr_txState   = isr::RdmBreak; 
             #if defined(UCSRC) && defined(UCSRB)
 	            UCSRB  = (1<<TXEN) |(1<<TXCIE);								
@@ -597,6 +587,11 @@ void SetISRMode ( isr::isrMode mode, int8_t re_pin )
             #endif 
             break;
     }
+
+    // If read enable pin is assigned
+    if (__re_pin > -1)
+        digitalWrite ( __re_pin, readEnable );
+
 }
 
 //
@@ -645,7 +640,7 @@ ISR (USART_TX)
 		    if ( __dmx_master->autoBreakEnabled () )
                 __isr_txState = isr::DmxBreak;
             else
-                SetISRMode ( isr::DMXTransmitManual, -1 );
+                SetISRMode ( isr::DMXTransmitManual );
 	    }
         
 		break;

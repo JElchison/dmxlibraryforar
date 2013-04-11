@@ -176,7 +176,6 @@ class DMX_Master
 
     private:
         DMX_FrameBuffer m_frameBuffer;
-        int             m_re_pin;
         uint8_t         m_autoBreak;
 };
 
@@ -213,7 +212,6 @@ class DMX_Slave : DMX_FrameBuffer
 
 
     private:
-        int             m_re_pin;
         uint16_t        m_startAddress;     // Slave start address
         dmx::dmxState   m_state;
 };
