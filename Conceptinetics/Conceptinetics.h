@@ -269,7 +269,8 @@ class RDM_FrameBuffer : IFrameBuffer
         bool processIncoming ( uint8_t val, bool first = false );
         
     protected:
-        bool processFrame ( void );
+        // Process received frame
+        virtual void processFrame ( void ) = 0;
 
     private:
         rdm::rdmState   m_state;       // State for pushing the message in
@@ -292,8 +293,10 @@ class RDM_Responder : public RDM_FrameBuffer
         ~RDM_Responder  ( void );
 
 
+    protected:  
+        virtual void processFrame ( void );
+
     private:
-        RDM_FrameBuffer m_buffer;   // Buffer to store RDM Data
         RDM_Uid         m_devid;    // Holds our unique device ID
 
 };

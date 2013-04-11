@@ -489,13 +489,12 @@ bool RDM_FrameBuffer::processIncoming ( uint8_t val, bool first )
             if ((m_csCalc.checksum % 0x10000) == m_csRecv.checksum)
             {
                 m_state = rdm::rdmFrameReady;
-                // valid checksum ....
-                // TODO.. process
+                
+                // valid checksum ... start processing
+                processFrame ();
             }
-            else
-            {
-                m_state = rdm::rdmUnknown;
-            }
+
+            m_state = rdm::rdmUnknown;
             rval = true;
             break;
     };
@@ -516,6 +515,10 @@ RDM_Responder::~RDM_Responder ( void )
     __rdm_responder = NULL;
 }
 
+void RDM_Responder::processFrame ( void )
+{
+    // TODO:
+}
 
 
 void SetISRMode ( isr::isrMode mode )
