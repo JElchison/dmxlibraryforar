@@ -223,8 +223,8 @@ union RDM_Message
         uint8_t     startCode;        // 0        SC_RDM
         uint8_t     subStartCode;     // 1        SC_SUB_MESSAGE
         uint8_t     msgLength;        // 2        Range 24 - 255
-        RDM_Uid     dstUid();         // 3-8      Destination UID
-        RDM_Uid     srcUid();         // 9-14     Source UID (sender)
+        RDM_Uid     dstUid;         // 3-8      Destination UID
+        RDM_Uid     srcUid;         // 9-14     Source UID (sender)
         uint8_t     TN;               // 15       Transaction number
         uint8_t     portId;           // 16       Port ID / Response type
         uint8_t     msgCount;         // 17
@@ -247,7 +247,7 @@ union RDM_Checksum
     };
 };
 
-class RDM_FrameBuffer : IFrameBuffer
+class RDM_FrameBuffer : public IFrameBuffer
 {
     public:
         //
@@ -264,15 +264,21 @@ class RDM_FrameBuffer : IFrameBuffer
 
         uint8_t &operator[] ( uint16_t index );
 
-       
-        // Process incoming byte from USART
+    public: // functions to provide access from USART       
+        // Process incoming byte from USART, 
+        // returns false when no more data is accepted
         bool processIncoming ( uint8_t val, bool first = false );
-        
+
+        // Process outgoing byte to USART
+        // returns false when no more data is available
+        bool fetchOutgoing ( volatile uint8_t *udr, bool first = false );
+
     protected:
         // Process received frame
         virtual void processFrame ( void ) = 0;
 
-    private:
+    //private:
+    protected:
         rdm::rdmState   m_state;       // State for pushing the message in
         RDM_Message     m_msg;
         RDM_Checksum    m_csRecv;      // Checksum received in rdm message

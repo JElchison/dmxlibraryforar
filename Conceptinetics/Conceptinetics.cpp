@@ -431,7 +431,6 @@ void RDM_FrameBuffer::clear ( void )
 {
     memset ( (void*)m_msg.d, 0x0, sizeof( m_msg ) ); 
     m_state             = rdm::rdmUnknown;
-    m_csCalc.checksum   = 0x0;
 }
 
 bool RDM_FrameBuffer::processIncoming ( uint8_t val, bool first )
@@ -443,11 +442,14 @@ bool RDM_FrameBuffer::processIncoming ( uint8_t val, bool first )
     if (idx >= sizeof(m_msg))
         return true;
 
-    if ( first ) m_state = rdm::rdmStartByte;
+    if ( first )
+    {
+        m_state = rdm::rdmStartByte;
+        m_csCalc.checksum   = (uint16_t) 0x0000;
+    }
 
     switch ( m_state )
     {
-        case rdm::rdmUnknown:
         case rdm::rdmStartByte:
             m_msg.msg.startCode = val;
             m_state = rdm::rdmSubStartCode;
@@ -486,7 +488,7 @@ bool RDM_FrameBuffer::processIncoming ( uint8_t val, bool first )
         case rdm::rdmChecksumLow:
             m_csRecv.csl = val;
             
-            if ((m_csCalc.checksum % 0x10000) == m_csRecv.checksum)
+            if ((m_csCalc.checksum % (uint16_t)0x10000) == m_csRecv.checksum)
             {
                 m_state = rdm::rdmFrameReady;
                 
@@ -502,12 +504,54 @@ bool RDM_FrameBuffer::processIncoming ( uint8_t val, bool first )
     return rval;
 }
 
+bool RDM_FrameBuffer::fetchOutgoing ( volatile uint8_t *udr, bool first )
+{
+    static uint16_t idx;
+    bool            rval = false;
+
+
+    if ( first )
+    {
+        m_state             = rdm::rdmData;
+        m_csCalc.checksum   = (uint16_t) 0x0000;
+        idx                 = 0;
+    }
+
+    switch ( m_state )
+    {
+        case rdm::rdmData:
+            *udr = m_msg.d[idx++];
+            m_csCalc.checksum += m_msg.d[idx++];
+            if ( idx >= m_msg.msg.msgLength )
+            {
+                m_csCalc.checksum = (m_csCalc.checksum % (uint16_t)0x10000);
+                m_state = rdm::rdmChecksumHigh;
+            }
+            break;
+        
+        case rdm::rdmChecksumHigh:
+            *udr = m_csCalc.csh;
+            m_state = rdm::rdmChecksumLow;
+            break;
+
+        case rdm::rdmChecksumLow:
+            *udr = m_csCalc.csl;
+            m_state = rdm::rdmUnknown;
+            rval = true;
+            break;
+
+    }
+
+    return rval;
+}
+
+
 
 RDM_Responder::RDM_Responder ( uint16_t m, uint8_t d1, uint8_t d2, uint8_t d3, uint8_t d4 )
-:   RDM_FrameBuffer ( ),
-    m_devid ( m, d1, d2, d3, d4 )
+:   RDM_FrameBuffer ( )
 {
     __rdm_responder = this;
+    m_devid.Initialize ( m, d1, d2, d3, d4 );
 }
 
 RDM_Responder::~RDM_Responder ( void )
@@ -517,7 +561,32 @@ RDM_Responder::~RDM_Responder ( void )
 
 void RDM_Responder::processFrame ( void )
 {
-    // TODO:
+    // Set response type
+    m_msg.msg.portId = rdm::ResponseTypeAck; 
+
+    // If packet is a general broadcast   
+    if ( 
+        m_msg.msg.dstUid.isBroadcast (m_devid.m_manid) ||  
+        m_devid == m_msg.msg.dstUid
+       )
+    {
+        switch ( m_msg.msg.PID )
+        {
+            
+        };
+    }
+
+    // If packet is not a broadcast packet and not a 
+    // discover unique branch packet
+    // start response process
+    if (
+        ! m_msg.msg.dstUid.isBroadcast (m_devid.m_manid) && 
+          m_msg.msg.PID != rdm::DiscUniqueBranch
+       )
+    {
+        SetISRMode ( isr::RDMTransmit );
+    }
+
 }
 
 
@@ -652,15 +721,19 @@ ISR (USART_TX)
         DMX_UBRRH = (unsigned char)(((F_CPU + DMX_BAUD_RATE * 8L) / (DMX_BAUD_RATE * 16L) - 1)>>8);
 		DMX_UBRRL = (unsigned char) ((F_CPU + DMX_BAUD_RATE * 8L) / (DMX_BAUD_RATE * 16L) - 1);			
 
-        DMX_UDR = 0x0;
+        // Write start byte
+        __rdm_responder->fetchOutgoing ( &DMX_UDR, true );
         __isr_txState = isr::RdmTransmitData;
 
         break;
 
     case isr::RdmTransmitData:
-        DMX_UDR = 0x0;
-        __isr_txState = isr::RdmTransmitData;
-
+        // Write rest of data
+        if ( __rdm_responder->fetchOutgoing ( &DMX_UDR ) )
+        {
+            SetISRMode ( isr::Receive );    // Start waitin for new data
+            __isr_txState = isr::Idle;      // No tx state
+        }
         break;
     }
 }
@@ -695,7 +768,7 @@ ISR (USART_RX)
             }
             else if ( __rdm_responder && usart_data == RDM_START_CODE /* 0xcc */ )
             {
-                __rdm_responder->clear ();
+                // __rdm_responder->clear ();
                 __rdm_responder->processIncoming ( usart_data, true );
                 __isr_rxState = isr::RdmRecordData;
             }

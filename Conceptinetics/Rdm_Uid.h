@@ -26,7 +26,7 @@
 //
 struct RDM_Uid {
 
-	RDM_Uid ( uint16_t m, uint8_t d1, uint8_t d2, uint8_t d3, uint8_t d4 ) 
+    void Initialize ( uint16_t m, uint8_t d1, uint8_t d2, uint8_t d3, uint8_t d4 ) 
     {
 		m_manid     = m;
 		m_devid[0]  = d1;
@@ -35,21 +35,13 @@ struct RDM_Uid {
 		m_devid[3]  = d4;
 	}
 
-	RDM_Uid ( const RDM_Uid & orig ) 
+    void copy ( const RDM_Uid &orig ) 
     {
-		m_manid = orig.m_manid;
+        m_manid = orig.m_manid;
 
-		for ( uint8_t i = 0; i < 4; i++ )
-			m_devid[i] = orig.m_devid[i];
-	}
-
-	RDM_Uid ( void ) 
-    {
-		m_manid = 0x0;
-
-		for ( uint8_t i = 0; i < 4; i++ )
-			m_devid[i] = 0x0;
-	}
+	    for ( uint8_t i = 0; i < 4; i++ )
+            m_devid[i] = orig.m_devid[i];
+    }
 
 	bool operator == ( const RDM_Uid & orig ) const
 	{
@@ -107,5 +99,6 @@ struct RDM_Uid {
 	uint16_t    m_manid;    //16 bit manufacturer id
 	uint8_t     m_devid[4]; //32 bits device ide
 };
+
 
 #endif /* RDM_UID_H_ */
