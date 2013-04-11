@@ -93,12 +93,10 @@ namespace rdm
 
 struct IFrameBuffer
 {
-        uint16_t    getBufferSize   ( void );        
+    virtual uint16_t    getBufferSize   ( void ) = 0;        
 
-        uint8_t     getSlotValue    ( uint16_t index );
-        void        setSlotValue    ( uint16_t index, uint8_t value );
-
-        uint8_t     &operator[]     ( uint16_t index );    
+    virtual uint8_t     getSlotValue    ( uint16_t index ) = 0;
+    virtual void        setSlotValue    ( uint16_t index, uint8_t value ) = 0;
 };
 
 class DMX_FrameBuffer : IFrameBuffer
@@ -225,8 +223,8 @@ union RDM_Message
         uint8_t     startCode;        // 0        SC_RDM
         uint8_t     subStartCode;     // 1        SC_SUB_MESSAGE
         uint8_t     msgLength;        // 2        Range 24 - 255
-        RDM_Uid     dstUid();           // 3-8      Destination UID
-        RDM_Uid     srcUid();           // 9-14     Source UID (sender)
+        RDM_Uid     dstUid();         // 3-8      Destination UID
+        RDM_Uid     srcUid();         // 9-14     Source UID (sender)
         uint8_t     TN;               // 15       Transaction number
         uint8_t     portId;           // 16       Port ID / Response type
         uint8_t     msgCount;         // 17
@@ -268,7 +266,10 @@ class RDM_FrameBuffer : IFrameBuffer
 
        
         // Process incoming byte from USART
-        bool processIncoming   ( uint8_t val, bool first = false );
+        bool processIncoming ( uint8_t val, bool first = false );
+        
+    protected:
+        bool processFrame ( void );
 
     private:
         rdm::rdmState   m_state;       // State for pushing the message in
