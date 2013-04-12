@@ -21,6 +21,8 @@
 #ifndef RDM_UID_H_
 #define RDM_UID_H_
 
+#include <inttypes.h>
+
 //
 //48 bit UID Representation to identify RDM transponders
 //
@@ -28,28 +30,24 @@ struct RDM_Uid {
 
     void Initialize ( uint16_t m, uint8_t d1, uint8_t d2, uint8_t d3, uint8_t d4 ) 
     {
-		m_manid     = m;
-		m_devid[0]  = d1;
-		m_devid[1]  = d2;
-		m_devid[2]  = d3;
-		m_devid[3]  = d4;
+		m_id[0]  = ((uint8_t) (((uint16_t) (m)) >> 8));
+        m_id[1]  = (uint8_t)m; 
+		m_id[2]  = d1;
+		m_id[3]  = d2;
+		m_id[4]  = d3;
+		m_id[5]  = d4;
 	}
 
     void copy ( const RDM_Uid &orig ) 
     {
-        m_manid = orig.m_manid;
-
-	    for ( uint8_t i = 0; i < 4; i++ )
-            m_devid[i] = orig.m_devid[i];
+	    for ( uint8_t i = 0; i < 6; i++ )
+            m_id[i] = orig.m_id[i];
     }
 
 	bool operator == ( const RDM_Uid & orig ) const
 	{
-		if (m_manid != orig.m_manid)
-			return false;
-
-		for ( uint8_t i = 0; i < 4; i++ )
-			if ( m_devid[i] != orig.m_devid[i] )
+		for ( uint8_t i = 0; i < 6; i++ )
+			if ( m_id[i] != orig.m_id[i] )
 				return false;
 	}
 
@@ -60,44 +58,38 @@ struct RDM_Uid {
 
 	bool operator < ( const RDM_Uid & v ) const
 	{
-		if ( m_manid != v.m_manid )
-			return ( m_manid < v.m_manid );
-
-		for ( uint8_t i = 0; i < 4; i++ )
-			if ( m_devid[i] != v.m_devid[i] )
-				return ( m_devid[i] < v.m_devid[i] );
+		for ( uint8_t i = 0; i < 6; i++ )
+			if ( m_id[i] != v.m_id[i] )
+				return ( m_id[i] < v.m_id[i] );
 	}
 
-	bool operator > ( const RDM_Uid & v ) {
-		if ( m_manid != v.m_manid )
-			return ( m_manid > v.m_manid );
-
-		for ( uint8_t i = 0; i < 4; i++ )
-			if ( m_devid[i] != v.m_devid[i] )
-				return ( m_devid[i] > v.m_devid[i] );
+	bool operator > ( const RDM_Uid & v ) 
+    {
+		for ( uint8_t i = 0; i < 6; i++ )
+			if ( m_id[i] != v.m_id[i] )
+				return ( m_id[i] > v.m_id[i] );
 	}
 
     // 
     // match_mid = manufacturer id to match
     //
-    bool isBroadcast ( uint16_t match_mid=0xffff )
+    bool isBroadcast ( uint8_t match_mid[2] )
     {
         // Check for genuine broadcast on device part
-        for ( uint8_t i = 0; i < 4; i++ )
-            if ( m_devid[i] != 0xff )
+        for ( uint8_t i = 2; i < 6; i++ )
+            if ( m_id[i] != 0xff )
                 return false;
 
-        // Check for genuine broadcast match on manufacturer part
-        if ( m_manid != 0xffff && m_manid != match_mid )
-            return false;
-            
-        // Yes! this broadcast is also for us!
-        return true;
+        // Broadcast or manufacturer designated broadcast
+        if ( (m_id[0] == 0xff && m_id[1] == 0xff) ||
+             (m_id[0] == match_mid[0] && m_id[1] == match_mid[1]) )
+             return true;
+        
+        // No broadcast    
+        return false;
     }
 
-
-	uint16_t    m_manid;    //16 bit manufacturer id
-	uint8_t     m_devid[4]; //32 bits device ide
+	uint8_t   m_id[6];     //16bit manufacturer id + 32 bits device id
 };
 
 

@@ -60,10 +60,6 @@
 // your ISR.. make it lower to generate longer breaks
 #define DMX_BREAK_RATE 	 	    99900       
 
-#define RDM_HDR_LEN             24      // RDM Message header length ** fixed
-#define RDM_PD_MAXLEN           32      // RDM Maximum parameter data length 1 - 231
-
-
 namespace dmx 
 {
     enum dmxState 
@@ -89,7 +85,7 @@ namespace rdm
         rdmChecksumLow,
         rdmFrameReady,
     };
-}
+};
 
 struct IFrameBuffer
 {
@@ -181,11 +177,13 @@ class DMX_Master
 //
 // DMX Slave controller
 //
-class DMX_Slave : DMX_FrameBuffer
+class DMX_Slave : public DMX_FrameBuffer
 {
     public:
         DMX_Slave ( DMX_FrameBuffer &buffer, int readEnablePin = -1 );
 
+        // nrChannels is the consecutive DMX512 slots required
+        // to operate this slave device
         DMX_Slave ( uint16_t nrChannels, int readEnablePin = -1 );
 
         ~DMX_Slave ( void );
@@ -214,38 +212,6 @@ class DMX_Slave : DMX_FrameBuffer
         dmx::dmxState   m_state;
 };
 
-
-union RDM_Message
-{
-    uint8_t         d[ RDM_HDR_LEN + RDM_PD_MAXLEN ];
-    struct
-    {
-        uint8_t     startCode;        // 0        SC_RDM
-        uint8_t     subStartCode;     // 1        SC_SUB_MESSAGE
-        uint8_t     msgLength;        // 2        Range 24 - 255
-        RDM_Uid     dstUid;         // 3-8      Destination UID
-        RDM_Uid     srcUid;         // 9-14     Source UID (sender)
-        uint8_t     TN;               // 15       Transaction number
-        uint8_t     portId;           // 16       Port ID / Response type
-        uint8_t     msgCount;         // 17
-        uint16_t    subDevice;        // 18,19    0=root, 0xffff=all
-        uint8_t     CC;               // 20       GET_COMMAND
-        uint16_t    PID;              // 21,22    Parameter ID
-        uint8_t     PDL;              // 23       Parameter Data length 1-231 
-
-        uint8_t     PD[RDM_PD_MAXLEN];    // Parameter Data ... variable length 
-    } msg;
-};
-
-union RDM_Checksum
-{
-    uint16_t checksum;
-    struct
-    {
-        uint8_t csl;
-        uint8_t csh;
-    };
-};
 
 class RDM_FrameBuffer : public IFrameBuffer
 {
@@ -295,16 +261,65 @@ class RDM_Responder : public RDM_FrameBuffer
         // m        = manufacturer id (16bits)
         // d1-d4    = device id (32bits)
         //
-        RDM_Responder   ( uint16_t m, uint8_t d1, uint8_t d2, uint8_t d3, uint8_t d4 );
+        RDM_Responder   ( uint16_t m, uint8_t d1, uint8_t d2, uint8_t d3, uint8_t d4, DMX_Slave &slave);
         ~RDM_Responder  ( void );
+
+        void    setDeviceInfo 
+                ( 
+                    uint16_t deviceModelId, 
+                    rdm::RdmProductCategory productCategory,
+                    uint16_t softwareVersionId,
+                    uint8_t personalities = 1,
+                    uint8_t personality = 1
+                )
+        {
+            m_DeviceModelId         = deviceModelId;
+            m_SoftwareVersionId     = softwareVersionId;
+            m_ProductCategory       = productCategory;
+            m_Personalities         = personalities;
+            m_Personality           = personality;
+        };
+
+        // Currently no sensors and subdevices supported
+        // void    AddSensor ( void );
+        // void    AddSubDevice ( void );
+
+        uint8_t getPersonality ( void ) { return m_Personality; };
+        void    setPersonality ( uint8_t personality ) { m_Personality = personality; };
+    
+        // Makes this device discoverable, call this after
+        // finishing the responder configuration
+        void    ready ();
 
 
     protected:  
         virtual void processFrame ( void );
 
-    private:
-        RDM_Uid         m_devid;    // Holds our unique device ID
+        // Discovery to unque brach packets only requires
+        // the data part of the packet to be transmitted
+        // without breaks or header
+        void repondDiscUniqueBranch ( void );
 
+        // Helpers for generating response packets which 
+        // have larger datafields
+        void populateDeviceInfo ( void );
+
+    private:
+        RDM_Uid                     m_devid;            // Holds our unique device ID
+        uint8_t                     m_Personalities;    // The total number of supported personalities
+        uint8_t                     m_Personality;      // The currently active personality
+        uint16_t                    m_DeviceModelId;
+        uint16_t                    m_SoftwareVersionId;
+        rdm::RdmProductCategory     m_ProductCategory;
+
+        union
+        {
+            uint8_t  raw;
+            struct
+            {
+                uint8_t mute:1; 
+            };
+        } m_rdmStatus;
 };
 
 

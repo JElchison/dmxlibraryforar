@@ -80,6 +80,10 @@
   #define DMX_FE FE0
 #endif
 
+#define LOWBYTE(v)   ((uint8_t) (v))
+#define HIGHBYTE(v)  ((uint8_t) (((uint16_t) (v)) >> 8))
+
+#define BSWAP_16(x)  ( (uint8_t)((x) >> 8) | ((uint8_t)(x)) << 8 )
 
 namespace isr
 {
@@ -103,8 +107,9 @@ namespace isr
         Disabled,
         Receive,
         DMXTransmit,
-        DMXTransmitManual, /* Manual break... */
+        DMXTransmitManual,  /* Manual break... */
         RDMTransmit,
+        RDMTransmitNoInt,   /* Setup uart but leave interrupt disabled */
     };
 };
 
@@ -451,7 +456,7 @@ bool RDM_FrameBuffer::processIncoming ( uint8_t val, bool first )
     switch ( m_state )
     {
         case rdm::rdmStartByte:
-            m_msg.msg.startCode = val;
+            m_msg.startCode = val;
             m_state = rdm::rdmSubStartCode;
             break;
 
@@ -462,12 +467,12 @@ bool RDM_FrameBuffer::processIncoming ( uint8_t val, bool first )
                 break;
             }
 
-            m_msg.msg.subStartCode = val;
+            m_msg.subStartCode = val;
             m_state = rdm::rdmMessageLength;
             break;
 
         case rdm::rdmMessageLength:
-            m_msg.msg.msgLength = val;
+            m_msg.msgLength = val;
             m_state = rdm::rdmData;
             m_csCalc.checksum = 0xcc + 0x01 + val;  // set initial checksum 
             idx = 3;                                // buffer index for next byte
@@ -476,7 +481,7 @@ bool RDM_FrameBuffer::processIncoming ( uint8_t val, bool first )
         case rdm::rdmData:
             m_msg.d[idx++] = val;
             m_csCalc.checksum += val;
-            if ( idx == m_msg.msg.msgLength )
+            if ( idx == m_msg.msgLength )
                 m_state = rdm::rdmChecksumHigh;
             break;
 
@@ -522,7 +527,7 @@ bool RDM_FrameBuffer::fetchOutgoing ( volatile uint8_t *udr, bool first )
         case rdm::rdmData:
             *udr = m_msg.d[idx++];
             m_csCalc.checksum += m_msg.d[idx++];
-            if ( idx >= m_msg.msg.msgLength )
+            if ( idx >= m_msg.msgLength )
             {
                 m_csCalc.checksum = (m_csCalc.checksum % (uint16_t)0x10000);
                 m_state = rdm::rdmChecksumHigh;
@@ -546,9 +551,15 @@ bool RDM_FrameBuffer::fetchOutgoing ( volatile uint8_t *udr, bool first )
 }
 
 
-
-RDM_Responder::RDM_Responder ( uint16_t m, uint8_t d1, uint8_t d2, uint8_t d3, uint8_t d4 )
-:   RDM_FrameBuffer ( )
+//
+// slave parameter is only used to ensure a slave object is present before
+// initializing the rdm responder class
+//
+RDM_Responder::RDM_Responder ( uint16_t m, uint8_t d1, uint8_t d2, 
+                               uint8_t d3, uint8_t d4, DMX_Slave &slave )
+:   RDM_FrameBuffer ( ),
+    m_Personalities (1),    // Available personlities
+    m_Personality (1)       // Default personality eq 1.
 {
     __rdm_responder = this;
     m_devid.Initialize ( m, d1, d2, d3, d4 );
@@ -559,34 +570,192 @@ RDM_Responder::~RDM_Responder ( void )
     __rdm_responder = NULL;
 }
 
+
+void RDM_Responder::repondDiscUniqueBranch ( void )
+{
+    RDM_Checksum cs;
+    cs.checksum = 0;
+
+    uint8_t response[24] =
+    {
+    0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xfe, 0xaa,     // byte 0-7
+    m_devid.m_id[0] | 0xaa, m_devid.m_id[0] | 0x55,     // byte 8, 10   MSB manufacturer
+    m_devid.m_id[1] | 0xaa, m_devid.m_id[1] | 0x55,     // byte 10, 11  LSB manufacturer
+    m_devid.m_id[2] | 0xaa, m_devid.m_id[2] | 0x55,     // byte 12, 13  MSB device
+    m_devid.m_id[3] | 0xaa, m_devid.m_id[3] | 0x55,     // byte 14, 15   .
+    m_devid.m_id[4] | 0xaa, m_devid.m_id[4] | 0x55,     // byte 16, 17   .
+    m_devid.m_id[5] | 0xaa, m_devid.m_id[5] | 0x55,     // byte 18, 19  LSB device
+    0x0, 0x0, 0x0, 0x0                                  // Checksum space
+    };
+
+    // Calculate checksum
+    for ( int i=8; i<20; i++ )
+        cs.checksum += response [i];
+
+    // Write checksum into response
+    response [20] = cs.csh | 0xaa;
+    response [21] = cs.csh | 0x55;
+    response [22] = cs.csl | 0xaa;
+    response [23] = cs.csl | 0x55;
+
+    // Set shield to transmit mode (turn arround)
+    digitalWrite ( __re_pin, HIGH );
+
+    for ( int i=0; i<24; i++ )
+    {
+        #if defined (UCSR0A) && defined (UDRE0)
+        while((UCSR0A & (1 <<UDRE0)) == 0);	
+        #elif defined (UCSRA) && defined (UDRE)
+        while((UCSRA & (1 <<UDRE)) == 0);	
+        #endif
+        
+        DMX_UDR = response[i];
+    }
+
+    // Wait until last byte is send
+    #if defined (UCSR0A) && defined (UDRE0)
+    while((UCSR0A & (1 <<UDRE0)) == 0);	
+    #elif defined (UCSRA) && defined (UDRE)
+    while((UCSRA & (1 <<UDRE)) == 0);	
+    #endif
+
+    // Restore ISR operations
+    ::SetISRMode ( isr::Receive );
+}
+
+
+void RDM_Responder::populateDeviceInfo ( void )
+{
+    RDM__DeviceInfoPD *pd = reinterpret_cast<RDM__DeviceInfoPD *>(m_msg.PD);
+
+    pd->protocolVersionMajor        = 0x01;
+    pd->protocolVersionMinor        = 0x00;
+    pd->deviceModelId               = BSWAP_16(m_DeviceModelId);
+    pd->ProductCategory             = BSWAP_16(m_ProductCategory);
+    pd->SoftwareVersionId           = ((uint32_t)(BSWAP_16(m_SoftwareVersionId) << 16));
+    pd->DMX512FootPrint             = BSWAP_16(__dmx_slave->getBufferSize());
+    pd->DMX512CurrentPersonality    = m_Personality;
+    pd->DMX512NumberPersonalities   = m_Personalities;
+    pd->DMX512StartAddress          = BSWAP_16(__dmx_slave->getStartAddress());
+    pd->SubDeviceCount              = 0x0; // Not yet supported
+    pd->SensorCount                 = 0x0; // Not yet supported
+
+    m_msg.PDL = sizeof (RDM__DeviceInfoPD);
+}
+
+
 void RDM_Responder::processFrame ( void )
 {
-    // Set response type
-    m_msg.msg.portId = rdm::ResponseTypeAck; 
-
     // If packet is a general broadcast   
     if ( 
-        m_msg.msg.dstUid.isBroadcast (m_devid.m_manid) ||  
-        m_devid == m_msg.msg.dstUid
+        m_msg.dstUid.isBroadcast (m_devid.m_id) ||  
+        m_devid == m_msg.dstUid
        )
     {
-        switch ( m_msg.msg.PID )
+        // Set default response type
+        m_msg.portId = rdm::ResponseTypeAck; 
+
+        switch ( BSWAP_16(m_msg.PID) )
         {
-            
+            case rdm::DiscUniqueBranch:
+                // Check if we are inside the given unique branch...
+                if ( m_rdmStatus.mute == false &&
+                     reinterpret_cast<RDM_DiscUniqueBranchPD *>(m_msg.PD)->lbound < m_devid &&
+                     reinterpret_cast<RDM_DiscUniqueBranchPD *>(m_msg.PD)->hbound > m_devid )
+                {
+                    // Discovery messages are responded with data only and no breaks
+                    repondDiscUniqueBranch ();
+                }
+                break;
+
+            case rdm::DiscMute:
+                reinterpret_cast<RDM_DiscMuteUnMutePD *>(m_msg.PD)->ctrlField = 0x0;
+                m_msg.PDL = sizeof ( RDM_DiscMuteUnMutePD );
+                m_rdmStatus.mute = true; 
+                break;
+
+            case rdm::DiscUnMute:
+                reinterpret_cast<RDM_DiscMuteUnMutePD *>(m_msg.PD)->ctrlField = 0x0;
+                m_msg.PDL = sizeof ( RDM_DiscMuteUnMutePD );
+                m_rdmStatus.mute = false;
+                break;
+
+            case rdm::SupportedParameters:
+                //
+                // Temporary solution... this will become dynamic
+                // in a later version...
+                //
+                m_msg.PD[0] = HIGHBYTE(rdm::DmxStartAddress);   // MSB
+                m_msg.PD[1] = LOWBYTE (rdm::DmxStartAddress);   // LSB
+                m_msg.PDL   = 0x2;
+                break;
+
+            // Only for manufacturer specific parameters
+            // case rdm::ParameterDescription:
+            //    break;
+
+            case rdm::DeviceInfo:
+                if ( m_msg.CC == rdm::GetCommand )
+                    populateDeviceInfo ();
+                break;
+
+            case rdm::DmxStartAddress:                
+                if ( m_msg.CC == rdm::GetCommand )
+                {
+                    m_msg.PD[0] = HIGHBYTE(__dmx_slave->getStartAddress ());
+                    m_msg.PD[1] = LOWBYTE (__dmx_slave->getStartAddress ());
+                    m_msg.PDL   = 0x2;
+                }
+                else // if (  m_msg.CC == rdm::SetCommand  )
+                {
+                    __dmx_slave->setStartAddress ( (m_msg.PD[0] << 8) + m_msg.PD[1] );
+                    m_msg.PDL   = 0x0;
+                }
+                break;
+
+            default:
+                // Unknown parameter ID response
+                m_msg.portId    = rdm::ResponseTypeNackReason;
+                m_msg.PD[0]     = rdm::UnknownPid;
+                m_msg.PD[1]     = 0x0;
+                m_msg.PDL       = 0x2;
+                break;
         };
     }
 
-    // If packet is not a broadcast packet and not a 
-    // discover unique branch packet
-    // start response process
-    if (
-        ! m_msg.msg.dstUid.isBroadcast (m_devid.m_manid) && 
-          m_msg.msg.PID != rdm::DiscUniqueBranch
-       )
+    //
+    // Only respond if this this was not a 
+    // broadcast message
+    //
+    if ( ! m_msg.dstUid.isBroadcast ( m_devid.m_id ) )
     {
+        m_msg.startCode     = RDM_START_CODE;
+        m_msg.subStartCode  = 0x01;
+        m_msg.msgLength     = RDM_HDR_LEN + m_msg.PDL;
+        m_msg.msgCount      = 0;
+
+        /*
+        switch ( m_msg.msg.CC )
+        {
+            case rdm::DiscoveryCommand:
+                m_msg.msg.CC = rdm::DiscoveryCommandResponse;
+                break;
+            case rdm::GetCommand:
+                m_msg.msg.CC = rdm::GetCommandResponse;
+                break;
+            case rdm::SetCommand:
+                m_msg.msg.CC = rdm::SetCommandResponse;
+                break;
+        }
+        */ 
+        /* Above replaced by next line */
+        m_msg.CC++;
+
+        m_msg.dstUid.copy ( m_msg.srcUid );
+        m_msg.srcUid.copy ( m_devid );
+
         SetISRMode ( isr::RDMTransmit );
     }
-
 }
 
 
@@ -619,9 +788,9 @@ void SetISRMode ( isr::isrMode mode )
 	        DMX_UDR             = 0x0;
 	        __isr_rxState       = isr::Idle;        
             readEnable          = LOW; 
-            #if defined(UCSRB) && defined (UCSRC)
+            #if defined(UCSRB)
         	    UCSRB  = (1<<RXCIE)|(1<<RXEN);	
-            #elif defined(UCSR0B) && defined (UCSR0C)
+            #elif defined(UCSR0B)
         	    UCSR0B = (1<<RXCIE0)|(1<<RXEN0);        // Enable receive
             #endif                
             break;
@@ -630,9 +799,9 @@ void SetISRMode ( isr::isrMode mode )
             DMX_UDR         = 0x0;                              
             readEnable      = HIGH;
             __isr_txState   = isr::DmxBreak; 
-            #if defined(UCSRC) && defined(UCSRB)
+            #if defined(UCSRB)
 	            UCSRB  = (1<<TXEN) |(1<<TXCIE);								
-            #elif defined(UCSR0C) && defined(UCSR0B)
+            #elif defined(UCSR0B)
 	            UCSR0B = (1<<TXEN0) |(1<<TXCIE0);
             #endif 
             break;
@@ -652,9 +821,9 @@ void SetISRMode ( isr::isrMode mode )
             DMX_UDR         = 0x0;
             readEnable      = HIGH;
             __isr_txState   = isr::RdmBreak; 
-            #if defined(UCSRC) && defined(UCSRB)
+            #if defined(UCSRB)
 	            UCSRB  = (1<<TXEN) |(1<<TXCIE);								
-            #elif defined(UCSR0C) && defined(UCSR0B)
+            #elif defined(UCSR0B)
 	            UCSR0B = (1<<TXEN0) |(1<<TXCIE0);
             #endif 
             break;
@@ -766,7 +935,7 @@ ISR (USART_RX)
                 __dmx_slave->processIncoming ( usart_data, true );
                 __isr_rxState = isr::DmxRecordData;
             }
-            else if ( __rdm_responder && usart_data == RDM_START_CODE /* 0xcc */ )
+            else if ( __rdm_responder && usart_data == RDM_START_CODE )
             {
                 // __rdm_responder->clear ();
                 __rdm_responder->processIncoming ( usart_data, true );
