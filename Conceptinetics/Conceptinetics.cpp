@@ -395,11 +395,12 @@ bool DMX_Slave::processIncoming ( uint8_t val, bool first )
             setSlotValue ( 0, val );    // Store start code
             idx = m_startAddress;
             m_state = dmx::dmxWaitStartAddress;
-            break;
+
         case dmx::dmxWaitStartAddress:
             if ( --idx == 0 )
                 m_state = dmx::dmxData;
             break;
+
         case dmx::dmxData:
             if ( idx++ < getBufferSize() )
                 setSlotValue ( idx, val );
@@ -443,19 +444,20 @@ bool RDM_FrameBuffer::processIncoming ( uint8_t val, bool first )
     static uint16_t idx;
     bool            rval = false;
 
-    // Prevent buffer overflow for large messages
-    if (idx >= sizeof(m_msg))
-        return true;
-
     if ( first )
     {
         m_state = rdm::rdmStartByte;
         m_csCalc.checksum   = (uint16_t) 0x0000;
+        idx = 0;
     }
+
+    // Prevent buffer overflow for large messages
+    if (idx >= sizeof(m_msg))
+        return true;
 
     switch ( m_state )
     {
-        case rdm::rdmStartByte:
+        case rdm::rdmStartByte: 
             m_msg.startCode = val;
             m_state = rdm::rdmSubStartCode;
             break;
@@ -492,9 +494,9 @@ bool RDM_FrameBuffer::processIncoming ( uint8_t val, bool first )
 
         case rdm::rdmChecksumLow:
             m_csRecv.csl = val;
-            
+
             if ((m_csCalc.checksum % (uint16_t)0x10000) == m_csRecv.checksum)
-            {
+            { 
                 m_state = rdm::rdmFrameReady;
                 
                 // valid checksum ... start processing
@@ -570,11 +572,15 @@ RDM_Responder::~RDM_Responder ( void )
     __rdm_responder = NULL;
 }
 
-
 void RDM_Responder::repondDiscUniqueBranch ( void )
 {
-    RDM_Checksum cs;
-    cs.checksum = 0;
+    #if defined(UCSRB)
+	UCSRB  = (1<<TXEN);								
+    #elif defined(UCSR0B)
+	UCSR0B = (1<<TXEN0);
+    #endif 
+
+    uint16_t cs = 0;
 
     uint8_t response[24] =
     {
@@ -590,19 +596,23 @@ void RDM_Responder::repondDiscUniqueBranch ( void )
 
     // Calculate checksum
     for ( int i=8; i<20; i++ )
-        cs.checksum += response [i];
+        cs += (uint16_t)response [i];
 
     // Write checksum into response
-    response [20] = cs.csh | 0xaa;
-    response [21] = cs.csh | 0x55;
-    response [22] = cs.csl | 0xaa;
-    response [23] = cs.csl | 0x55;
+    response [20] = HIGHBYTE (cs) | 0xaa;
+    response [21] = HIGHBYTE (cs) | 0x55;
+    response [22] = LOWBYTE  (cs) | 0xaa;
+    response [23] = LOWBYTE  (cs) | 0x55;
+
+    // Table 3-2 ANSI_E1-20-2010 
+    _delay_us ( MIN_RESPONDER_PACKET_SPACING_USEC );
 
     // Set shield to transmit mode (turn arround)
     digitalWrite ( __re_pin, HIGH );
 
     for ( int i=0; i<24; i++ )
     {
+        // Wait until data register is empty
         #if defined (UCSR0A) && defined (UDRE0)
         while((UCSR0A & (1 <<UDRE0)) == 0);	
         #elif defined (UCSRA) && defined (UDRE)
@@ -753,6 +763,8 @@ void RDM_Responder::processFrame ( void )
 
         m_msg.dstUid.copy ( m_msg.srcUid );
         m_msg.srcUid.copy ( m_devid );
+
+        _delay_us ( MIN_RESPONDER_PACKET_SPACING_USEC );
 
         SetISRMode ( isr::RDMTransmit );
     }
@@ -925,6 +937,7 @@ ISR (USART_RX)
 	{
 	    DMX_UCSRA &= ~(1<<DMX_FE);
         __isr_rxState = isr::Break;
+        return;
     }
     
     switch ( __isr_rxState )
@@ -950,7 +963,7 @@ ISR (USART_RX)
         // Process DMX Data
         case isr::DmxRecordData:
             if ( __dmx_slave->processIncoming ( usart_data ) )
-                __isr_rxState = isr::Idle;
+               __isr_rxState = isr::Idle;
             break;
 
         // Process RDM Data

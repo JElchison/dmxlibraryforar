@@ -23,7 +23,7 @@
   - Arduino UNO R3 using a CTC-DRA-13-1 ISOLATED DMX-RDM SHIELD 
   - Arduino MEGA2560 R3 using a CTC-DRA-13-1 ISOLATED DMX-RDM SHIELD 
 
-  - CTC-DRA-12-1 is the Non-isolated costs effective DMX-RDM shield 
+  - CTC-DRA-10-1 is the Non-isolated costs effective DMX-RDM shield 
 */
 
 
@@ -59,6 +59,10 @@
 // The baudrate used to automaticly generate a break within
 // your ISR.. make it lower to generate longer breaks
 #define DMX_BREAK_RATE 	 	    99900       
+
+// Tabel 3-2 ANSI_E1-20-2010 
+#define MIN_RESPONDER_PACKET_SPACING_USEC   176
+
 
 namespace dmx 
 {
