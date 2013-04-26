@@ -46,9 +46,9 @@
 #define DMX_START_CODE          0x0     // Start code for a DMX frame
 #define RDM_START_CODE          0xcc    // Start code for a RDM frame
 
-// Uncomment to enable interbyte gaps (Interslot times ) (avg < 76uSec) ... 
+// Uncomment to enable Inter slot delay ) (avg < 76uSec) ... 
 // mimum is zero according to specification
-// #define DMX_IBG				    10      // Interbyte gap
+// #define DMX_IBG				    10      // Inter slot time
 
 // Speed your Arduino is running on in Hz.
 #define F_OSC 				    16000000UL
@@ -61,7 +61,8 @@
 #define DMX_BREAK_RATE 	 	    99900       
 
 // Tabel 3-2 ANSI_E1-20-2010 
-#define MIN_RESPONDER_PACKET_SPACING_USEC   176
+// Minimum time to allow the datalink to 'turn arround'
+#define MIN_RESPONDER_PACKET_SPACING_USEC   170 /*176*/
 
 
 namespace dmx 
@@ -272,17 +273,31 @@ class RDM_Responder : public RDM_FrameBuffer
                 ( 
                     uint16_t deviceModelId, 
                     rdm::RdmProductCategory productCategory,
-                    uint16_t softwareVersionId,
                     uint8_t personalities = 1,
                     uint8_t personality = 1
                 )
         {
             m_DeviceModelId         = deviceModelId;
-            m_SoftwareVersionId     = softwareVersionId;
             m_ProductCategory       = productCategory;
             m_Personalities         = personalities;
             m_Personality           = personality;
         };
+
+        //
+        // Set vendor software version id
+        //
+        // v1 = MOST SIGNIFICANT
+        // v2... 
+        // v3...
+        // v4 = LEAST SIGNIFICANT
+        //
+        void    setSoftwareVersionId ( uint8_t v1, uint8_t v2, uint8_t v3, uint8_t v4 )
+        {
+            m_SoftwareVersionId[0] = v1;
+            m_SoftwareVersionId[1] = v2;
+            m_SoftwareVersionId[2] = v3;
+            m_SoftwareVersionId[3] = v4;
+        }
 
         // Currently no sensors and subdevices supported
         // void    AddSensor ( void );
@@ -293,6 +308,23 @@ class RDM_Responder : public RDM_FrameBuffer
     
         // Register on identify device event handler
         void    onIdentifyDevice ( void (*func)(bool) );
+
+
+        // Enable, Disable rdm responder
+        void enable ( void )    { m_rdmStatus.enabled = true; m_rdmStatus.mute = false; };
+        void disable ( void )   { m_rdmStatus.enabled = false; };
+
+       union
+        {
+            uint8_t  raw;
+            struct
+            {
+                uint8_t mute:1; 
+                uint8_t ident:1;
+                uint8_t enabled:1;  // Rdm responder enable/disable
+            };
+        } m_rdmStatus;
+
 
     protected:  
         virtual void processFrame ( void );
@@ -311,19 +343,9 @@ class RDM_Responder : public RDM_FrameBuffer
         uint8_t                     m_Personalities;    // The total number of supported personalities
         uint8_t                     m_Personality;      // The currently active personality
         uint16_t                    m_DeviceModelId;
-        uint16_t                    m_SoftwareVersionId;
+        uint8_t                     m_SoftwareVersionId[4]; // 32 bit Software version
         rdm::RdmProductCategory     m_ProductCategory;
-
-        union
-        {
-            uint8_t  raw;
-            struct
-            {
-                uint8_t mute:1; 
-                uint8_t ident:1;
-            };
-        } m_rdmStatus;
-
+ 
         static void (*event_onIdentifyDevice)(bool);
 };
 

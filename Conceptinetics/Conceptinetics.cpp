@@ -567,6 +567,12 @@ RDM_Responder::RDM_Responder ( uint16_t m, uint8_t d1, uint8_t d2,
 {
     __rdm_responder = this;
     m_devid.Initialize ( m, d1, d2, d3, d4 );
+
+    // Default software version id = 0x00000000
+    memset ( (void*)m_SoftwareVersionId, 0x0, 0x4 );
+
+    // Rdm responder is disabled by default
+    m_rdmStatus.enabled = false;
 }
 
 RDM_Responder::~RDM_Responder ( void )
@@ -611,7 +617,7 @@ void RDM_Responder::repondDiscUniqueBranch ( void )
     response [22] = LOWBYTE  (cs) | 0xaa;
     response [23] = LOWBYTE  (cs) | 0x55;
 
-    // Table 3-2 ANSI_E1-20-2010 
+    // Table 3-2 ANSI_E1-20-2010 <2ms 
     _delay_us ( MIN_RESPONDER_PACKET_SPACING_USEC );
 
     // Set shield to transmit mode (turn arround)
@@ -648,12 +654,12 @@ void RDM_Responder::populateDeviceInfo ( void )
     pd->protocolVersionMinor        = 0x00;
     pd->deviceModelId               = BSWAP_16(m_DeviceModelId);
     pd->ProductCategory             = BSWAP_16(m_ProductCategory);
-    pd->SoftwareVersionIdH          = BSWAP_16(m_SoftwareVersionId);
-    pd->SoftwareVersionIdL          = 0;
+    memcpy ( (void*)pd->SoftwareVersionId, (void*)m_SoftwareVersionId, 4 );
     pd->DMX512FootPrint             = BSWAP_16(__dmx_slave->getBufferSize()-1); // eq buffersize-startbyte
     pd->DMX512CurrentPersonality    = m_Personality;
     pd->DMX512NumberPersonalities   = m_Personalities;
     pd->DMX512StartAddress          = BSWAP_16(__dmx_slave->getStartAddress());
+
     pd->SubDeviceCount              = 0x0; // Sub devices are not supported by this library
     pd->SensorCount                 = 0x0; // Sensors are not yet supported
 
@@ -687,11 +693,9 @@ void RDM_Responder::processFrame ( void )
                 break;
 
             case rdm::DiscMute:
-                digitalWrite (8, HIGH);
                 reinterpret_cast<RDM_DiscMuteUnMutePD *>(m_msg.PD)->ctrlField = 0x0;
                 m_msg.PDL = sizeof ( RDM_DiscMuteUnMutePD );
                 m_rdmStatus.mute = true;
-                digitalWrite (8, LOW);
                 break;
 
             case rdm::DiscUnMute:
@@ -1005,7 +1009,9 @@ ISR (USART_RX)
                 __dmx_slave->processIncoming ( usart_data, true );
                 __isr_rxState = isr::DmxRecordData;
             }
-            else if ( __rdm_responder && usart_data == RDM_START_CODE )
+            else if ( __rdm_responder && 
+                      usart_data == RDM_START_CODE && 
+                      __rdm_responder->m_rdmStatus.enabled )
             {
                 // __rdm_responder->clear ();
                 __rdm_responder->processIncoming ( usart_data, true );

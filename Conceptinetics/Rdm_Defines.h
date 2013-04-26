@@ -285,9 +285,8 @@ struct RDM__DeviceInfoPD
     uint8_t     protocolVersionMajor;
     uint8_t     protocolVersionMinor;
     uint16_t    deviceModelId;
-    uint16_t    ProductCategory;    // enum RdmProductCategory
-    uint16_t    SoftwareVersionIdH;
-    uint16_t    SoftwareVersionIdL;
+    uint16_t    ProductCategory;        // enum RdmProductCategory
+    uint8_t     SoftwareVersionId[4]; 
     uint16_t    DMX512FootPrint;
     uint8_t     DMX512CurrentPersonality;
     uint8_t     DMX512NumberPersonalities;
