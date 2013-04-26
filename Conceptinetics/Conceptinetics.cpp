@@ -554,6 +554,9 @@ bool RDM_FrameBuffer::fetchOutgoing ( volatile uint8_t *udr, bool first )
 
 
 void (*RDM_Responder::event_onIdentifyDevice)(bool);
+void (*RDM_Responder::event_onDeviceLabelChanged)(const char*, uint8_t);
+void (*RDM_Responder::event_onDMXStartAddressChanged)(uint16_t);
+void (*RDM_Responder::event_onDMXPersonalityChanged)(uint8_t);
 
 //
 // slave parameter is only used to ensure a slave object is present before
@@ -583,6 +586,29 @@ RDM_Responder::~RDM_Responder ( void )
 void RDM_Responder::onIdentifyDevice ( void (*func)(bool) )
 {
     event_onIdentifyDevice = func;
+}
+
+void RDM_Responder::onDeviceLabelChanged ( void (*func) (const char*, uint8_t) )
+{
+    event_onDeviceLabelChanged = func;
+}
+
+void RDM_Responder::onDMXStartAddressChanged ( void (*func) (uint16_t) )
+{
+    event_onDMXStartAddressChanged = func;
+}
+
+void RDM_Responder::onDMXPersonalityChanged ( void (*func) (uint8_t) )
+{
+    event_onDMXPersonalityChanged = func;
+}
+
+void RDM_Responder::setDeviceLabel ( const char *label, size_t len )
+{
+    if ( len > RDM_MAX_DEVICELABEL_LENGTH )
+        len = RDM_MAX_DEVICELABEL_LENGTH;
+
+    memcpy ( (void *)m_deviceLabel, (void *)label, len );
 }
 
 void RDM_Responder::repondDiscUniqueBranch ( void )
@@ -711,10 +737,16 @@ void RDM_Responder::processFrame ( void )
                 //
                 m_msg.PD[0] = HIGHBYTE(rdm::DmxStartAddress);   // MSB
                 m_msg.PD[1] = LOWBYTE (rdm::DmxStartAddress);   // LSB
+                
                 m_msg.PD[2] = HIGHBYTE(rdm::DmxPersonality);
                 m_msg.PD[3] = LOWBYTE (rdm::DmxPersonality);
+                
                 m_msg.PD[4] = HIGHBYTE(rdm::ManufacturerLabel);
                 m_msg.PD[5] = LOWBYTE (rdm::ManufacturerLabel);
+
+                m_msg.PD[6] = HIGHBYTE(rdm::DeviceLabel);
+                m_msg.PD[7] = LOWBYTE (rdm::DeviceLabel);
+
                 m_msg.PDL   = 0x6;
                 break;
 
@@ -738,6 +770,9 @@ void RDM_Responder::processFrame ( void )
                 {
                     __dmx_slave->setStartAddress ( (m_msg.PD[0] << 8) + m_msg.PD[1] );
                     m_msg.PDL   = 0x0;
+
+                    if ( event_onDMXStartAddressChanged )
+                        event_onDMXStartAddressChanged ( (m_msg.PD[0] << 8) + m_msg.PD[1] );
                 }
                 break;
 
@@ -755,6 +790,9 @@ void RDM_Responder::processFrame ( void )
                      m_Personality = reinterpret_cast<RDM_DeviceSetPersonality_PD *>
                         (m_msg.PD)->DMX512Personality;
                      m_msg.PDL = 0x0;
+
+                     if ( event_onDMXPersonalityChanged )
+                        event_onDMXPersonalityChanged ( m_Personality );
                 } 
                 break;
 
@@ -782,6 +820,26 @@ void RDM_Responder::processFrame ( void )
                     memcpy_P( (void*)m_msg.PD, ManufacturerLabel_P, sizeof(ManufacturerLabel_P) );
     				m_msg.PDL = sizeof ( ManufacturerLabel_P );
                 }
+                break;
+
+            case rdm::DeviceLabel:
+                if ( m_msg.CC == rdm::GetCommand )
+                {
+                    memcpy ( m_msg.PD, (void*) m_deviceLabel, 32 );
+                    m_msg.PDL   = 32;
+                }
+                else if (  m_msg.CC == rdm::SetCommand  )
+                {
+                    memset ( (void*) m_deviceLabel, ' ', 32 );
+                    memcpy ( (void*) m_deviceLabel, m_msg.PD, (m_msg.PDL<32 ? m_msg.PDL : 32) );
+                    m_msg.PDL   = 0;
+                
+                    // Notify application
+                    if ( event_onDeviceLabelChanged )
+                        event_onDeviceLabelChanged ( m_deviceLabel, 32 );
+                }
+                break;
+
 
             default:
                 // Unknown parameter ID response

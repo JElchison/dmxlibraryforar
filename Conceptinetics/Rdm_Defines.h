@@ -23,6 +23,8 @@
 
 #include "Rdm_Uid.h"
 
+#define RDM_MAX_DEVICELABEL_LENGTH 32
+
 namespace rdm
 {
     enum RdmCommandClass

@@ -305,16 +305,22 @@ class RDM_Responder : public RDM_FrameBuffer
 
         uint8_t getPersonality ( void ) { return m_Personality; };
         void    setPersonality ( uint8_t personality ) { m_Personality = personality; };
-    
+   
         // Register on identify device event handler
         void    onIdentifyDevice ( void (*func)(bool) );
+        void    onDeviceLabelChanged ( void (*func) (const char*, uint8_t) );
+        void    onDMXStartAddressChanged ( void (*func) (uint16_t) );
+        void    onDMXPersonalityChanged ( void (*func) (uint8_t) );
 
+
+        // Set the device label
+        void    setDeviceLabel ( const char *label, size_t len );
 
         // Enable, Disable rdm responder
         void enable ( void )    { m_rdmStatus.enabled = true; m_rdmStatus.mute = false; };
         void disable ( void )   { m_rdmStatus.enabled = false; };
 
-       union
+        union
         {
             uint8_t  raw;
             struct
@@ -346,7 +352,12 @@ class RDM_Responder : public RDM_FrameBuffer
         uint8_t                     m_SoftwareVersionId[4]; // 32 bit Software version
         rdm::RdmProductCategory     m_ProductCategory;
  
+        char                        m_deviceLabel[32];  // Device label
+
         static void (*event_onIdentifyDevice)(bool);
+        static void (*event_onDeviceLabelChanged)(const char*, uint8_t);
+        static void (*event_onDMXStartAddressChanged)(uint16_t);
+        static void (*event_onDMXPersonalityChanged)(uint8_t);
 };
 
 
