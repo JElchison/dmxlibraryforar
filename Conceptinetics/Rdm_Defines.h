@@ -75,9 +75,9 @@ namespace rdm
         SoftwareVersionLabel            = 0x000c,   // Get
       
         // Category - DMX512 Setup
-        DmxPersonality                  = 0x000e,   // Get, Set
+        DmxPersonality                  = 0x00e0,   // Get, Set
         DmxPersonalityDescription       = 0x00e1,   // Get
-        DmxStartAddress                 = 0x000f,   // Get, Set ** Required if DMX device
+        DmxStartAddress                 = 0x00f0,   // Get, Set ** Required if DMX device
         SlotInfo                        = 0x0120,   // Get
         SlotDescription                 = 0x0121,   // Get
         DefaultSlotValue                = 0x0122,   // Get
@@ -111,15 +111,101 @@ namespace rdm
    
     enum RdmProductCategory
     {
-        ProductCategoryNotDeclared          = 0x0000,
-        ProductCategoryFixture              = 0x0100,
-        ProductCategoryFixtureFixed         = 0x0101,
-        ProductCategoryFixtureMovingYoke    = 0x0102,
-        ProductCategoryFixtureMovingMirror  = 0x0103,
-        ProductCategoryFixtureOther         = 0x01ff,
-        // TODO...
+        CategoryNotDeclared          = 0x0000,
+
+        // Fixtures - intended as source for illumination
+        CategoryFixture                     = 0x0100,
+        CategoryFixtureFixed                = 0x0101,
+        CategoryFixtureMovingYoke           = 0x0102,
+        CategoryFixtureMovingMirror         = 0x0103,
+        CategoryFixtureOther                = 0x01ff,
+        
+        // Fixture Accessories - add-ons to fixtures or projectors
+        CategoryFixtureAccessory            = 0x0200,
+        CategoryFixtureAccessoryColor       = 0x0201,
+        CategoryFixtureAccessoryYoke        = 0x0202,
+        CategoryFixtureAccessoryMirror      = 0x0203,
+        CategoryFixtureAccessoryEffect      = 0x0204,
+        CategoryFixtureAccessoryBeam        = 0x0205,
+        CategoryFixtureAccessoryOther       = 0x02ff,
+
+        // Projectors - Light source capable of producing
+        // realistic images from another media
+        CategoryProjector                   = 0x0300,
+        CategoryProjectorFixed              = 0x0301,
+        CategoryProjectorMovingYoke         = 0x0302,
+        CategoryProjectorMovingMirror       = 0x0303,
+        CategoryProjectorOther              = 0x03ff,
+
+        // Atmospheric Effect - earth/wind/fire
+        CategoryAtmospheric                 = 0x0400,
+        CategoryAtmosphericEffect           = 0x0401, // Fogger, Hazer, Flame
+        CategoryAtmosphericPyro             = 0x0402,
+        CategoryAtmosphericOther            = 0x04ff,
+
+        // Insensity Control (Specifically dimming equipment)
+        CategoryDimmer                      = 0x0500,
+        CategoryDimmer_AC_Incandescent      = 0x0501,
+        CategoryDimmer_AC_Fluorescent       = 0x0502,
+        CategoryDimmer_AC_Coldcathode       = 0x0503,
+        CategoryDimmer_AC_Nondim            = 0x0504,
+        CategoryDimmer_AC_Elv               = 0x0505,
+        CategoryDimmer_AC_Other             = 0x0506,
+        CategoryDimmer_DC_Level             = 0x0507,
+        CategoryDimmer_DC_PWM               = 0x0508,
+        CategoryDimmer_CS_LED               = 0x0509,
+        CategoryDimmer_Other                = 0x05ff,
+
+        // Power control (Other than dimming equipment)
+        CategoryPower                       = 0x0600,
+        CategoryPowerControl                = 0x0601,
+        CategoryPowerSource                 = 0x0602,
+        CategoryPowerOther                  = 0x06ff,
+
+        // Scenic Drive - Including motorized effects 
+        // unrelated to light source
+        CategoryScenic                      = 0x0700,
+        CategoryScenicDrive                 = 0x0701,
+        CategoryScenicOther                 = 0x07ff,
+
+        // DMX Infrastructure, conversion and interfaces
+        CategoryData                        = 0x0800,
+        CategoryDataDistribution            = 0x0801,
+        CategoryDataConversion              = 0x0802,
+        CategoryDataOther                   = 0x08ff,
+
+        // Audio visual equipment
+        Category_AV                         = 0x0900,
+        Category_AV_Audio                   = 0x0901,
+        Category_AV_Video                   = 0x0902,
+        Category_AV_Other                   = 0x09ff,
+
+        // Parameter monitoring equipment
+        CategoryMonitor                     = 0x0a00,
+        CategoryMonitorACLinePower          = 0x0a01,
+        CategoryMonitorDCPower              = 0x0a02,
+        CategoryMonitorEnvironmental        = 0x0a03,
+        CategoryMonitorOther                = 0x0aff,
+
+        // Controllers, backup devices
+        CategoryControl                     = 0x7000,
+        CategoryControlController           = 0x7001,
+        CategoryControlBackupdevice         = 0x7002,
+        CategoryControlOther                = 0x70ff,
+
+        // Test equipment
+        CategoryTest                        = 0x7100,
+        CategoryTestEquipment               = 0x7101,
+        CategoryTestEquipmentOther          = 0x71ff,
+
+        // Miscellaneous
+        CategoryOther                       = 0x7fff,
     };
 
+    // 
+    // Product details not yet supported in
+    // this library
+    //
     enum RdmProductDetail
     {
         ProductDetailNotDeclared        = 0x0000,
@@ -200,13 +286,25 @@ struct RDM__DeviceInfoPD
     uint8_t     protocolVersionMinor;
     uint16_t    deviceModelId;
     uint16_t    ProductCategory;    // enum RdmProductCategory
-    uint32_t    SoftwareVersionId;
+    uint16_t    SoftwareVersionIdH;
+    uint16_t    SoftwareVersionIdL;
     uint16_t    DMX512FootPrint;
     uint8_t     DMX512CurrentPersonality;
     uint8_t     DMX512NumberPersonalities;
     uint16_t    DMX512StartAddress;
     uint16_t    SubDeviceCount;
     uint8_t     SensorCount;
+};
+
+struct RDM_DeviceGetPersonality_PD
+{
+    uint8_t     DMX512CurrentPersonality;
+    uint8_t     DMX512NumberPersonalities;
+};
+
+struct RDM_DeviceSetPersonality_PD
+{
+    uint8_t     DMX512Personality;
 };
 
 

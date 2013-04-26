@@ -49,6 +49,8 @@ struct RDM_Uid {
 		for ( uint8_t i = 0; i < 6; i++ )
 			if ( m_id[i] != orig.m_id[i] )
 				return false;
+
+        return true;
 	}
 
 	bool operator != ( const RDM_Uid & orig ) const

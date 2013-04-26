@@ -291,10 +291,8 @@ class RDM_Responder : public RDM_FrameBuffer
         uint8_t getPersonality ( void ) { return m_Personality; };
         void    setPersonality ( uint8_t personality ) { m_Personality = personality; };
     
-        // Makes this device discoverable, call this after
-        // finishing the responder configuration
-        void    ready ();
-
+        // Register on identify device event handler
+        void    onIdentifyDevice ( void (*func)(bool) );
 
     protected:  
         virtual void processFrame ( void );
@@ -322,8 +320,11 @@ class RDM_Responder : public RDM_FrameBuffer
             struct
             {
                 uint8_t mute:1; 
+                uint8_t ident:1;
             };
         } m_rdmStatus;
+
+        static void (*event_onIdentifyDevice)(bool);
 };
 
 
