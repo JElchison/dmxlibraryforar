@@ -643,11 +643,11 @@ void RDM_Responder::repondDiscUniqueBranch ( void )
     response [22] = LOWBYTE  (cs) | 0xaa;
     response [23] = LOWBYTE  (cs) | 0x55;
 
-    // Table 3-2 ANSI_E1-20-2010 <2ms 
-    _delay_us ( MIN_RESPONDER_PACKET_SPACING_USEC );
-
     // Set shield to transmit mode (turn arround)
     digitalWrite ( __re_pin, HIGH );
+    
+    // Table 3-2 ANSI_E1-20-2010 <2ms 
+    _delay_us ( MIN_RESPONDER_PACKET_SPACING_USEC );
 
     for ( int i=0; i<24; i++ )
     {
@@ -708,6 +708,8 @@ void RDM_Responder::processFrame ( void )
         switch ( BSWAP_16(m_msg.PID) )
         {
             case rdm::DiscUniqueBranch:
+                digitalWrite (13, HIGH);
+
                 // Check if we are inside the given unique branch...
                 if ( !m_rdmStatus.mute &&
                      reinterpret_cast<RDM_DiscUniqueBranchPD *>(m_msg.PD)->lbound < m_devid &&
@@ -881,10 +883,10 @@ void RDM_Responder::processFrame ( void )
         m_msg.dstUid.copy ( m_msg.srcUid );
         m_msg.srcUid.copy ( m_devid );
 
-        _delay_us ( MIN_RESPONDER_PACKET_SPACING_USEC );
-
         SetISRMode ( isr::RDMTransmit );
-    }
+       _delay_us ( MIN_RESPONDER_PACKET_SPACING_USEC );
+
+     }
 }
 
 
