@@ -209,12 +209,18 @@ class DMX_Slave : public DMX_FrameBuffer
         // Process incoming byte from USART
         bool processIncoming   ( uint8_t val, bool first = false );
 
+        // Register on receive complete callback in case
+        // of time critical applications
+        void onReceiveComplete ( void (*func)(void) );
+
     protected:
 
 
     private:
         uint16_t        m_startAddress;     // Slave start address
         dmx::dmxState   m_state;
+
+        static void (*event_onFrameReceived)(void);
 };
 
 

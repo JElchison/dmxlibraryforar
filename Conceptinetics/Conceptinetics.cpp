@@ -320,6 +320,7 @@ void DMX_Master::breakAndContinue ( uint8_t breakLength_us )
 }
 
 
+void (*DMX_Slave::event_onFrameReceived)(void);
 
 
 DMX_Slave::DMX_Slave ( DMX_FrameBuffer &buffer, int readEnablePin )
@@ -380,6 +381,11 @@ void DMX_Slave::setStartAddress ( uint16_t addr )
     m_startAddress = addr;
 }
 
+void DMX_Slave::onReceiveComplete ( void (*func)(void) )
+{
+    event_onFrameReceived = func;
+}
+
 
 bool DMX_Slave::processIncoming ( uint8_t val, bool first )
 {
@@ -406,6 +412,11 @@ bool DMX_Slave::processIncoming ( uint8_t val, bool first )
             else
             {
                 m_state = dmx::dmxFrameReady;
+
+                // If a onFrameReceived callback is register...
+                if (event_onFrameReceived)
+                    event_onFrameReceived();
+                
                 rval = true;
             }
             break;
@@ -833,7 +844,7 @@ void RDM_Responder::processFrame ( void )
                 else if (  m_msg.CC == rdm::SetCommand  )
                 {
                     memset ( (void*) m_deviceLabel, ' ', 32 );
-                    memcpy ( (void*) m_deviceLabel, m_msg.PD, (m_msg.PDL<32 ? m_msg.PDL : 32) );
+                    memcpy ( (void*) m_deviceLabel, m_msg.PD, (m_msg.PDL < 32 ? m_msg.PDL : 32) );
                     m_msg.PDL   = 0;
                 
                     // Notify application
