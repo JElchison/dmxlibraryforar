@@ -28,6 +28,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 CHANGE LOG:
 
+	- 24-jun-2013: Add serial port selection for DMX in library (see Conceptinetics.h for details)
+    - 24-jun-2013: Add on receive complete callback to original library as well
     - 14-jun-2013: Add on receive complete callback to dmx_slave in rdm-alpha library
     - 26-apr-2013: Add basic Remote Device Management support (alpha)
     - 14-apr-2013: Fixed startbyte recognition

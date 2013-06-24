@@ -36,49 +36,123 @@
 
 #include <util/delay.h>
 
-#if defined (USART__TXC_vect)
-  #define USART_TX USART__TXC_vect
-#elif defined(USART_TX_vect)
-  #define USART_TX  USART_TX_vect
-#elif defined(USART0_TX_vect)
-  #define USART_TX USART0_TX_vect
-#endif 
 
-#if defined (USART__RXC_vect)
-  #define USART_RX USART__RXC_vect
-#elif defined(USART_RX_vect)
-  #define USART_RX  USART_RX_vect
-#elif defined(USART0_RX_vect)
-  #define USART_RX USART0_RX_vect
-#endif 
+#if defined (USE_DMX_SERIAL_0)
 
+    #if defined (USART__TXC_vect)
+      #define USART_TX USART__TXC_vect
+    #elif defined(USART_TX_vect)
+      #define USART_TX  USART_TX_vect
+    #elif defined(USART0_TX_vect)
+      #define USART_TX USART0_TX_vect
+    #endif 
 
-#if defined UDR
-  #define DMX_UDR UDR
-#elif defined UDR0
-  #define DMX_UDR UDR0
+    #if defined (USART__RXC_vect)
+      #define USART_RX USART__RXC_vect
+    #elif defined(USART_RX_vect)
+      #define USART_RX  USART_RX_vect
+    #elif defined(USART0_RX_vect)
+      #define USART_RX USART0_RX_vect
+    #endif 
+
+    #if defined UDR
+      #define DMX_UDR UDR
+    #elif defined UDR0
+      #define DMX_UDR UDR0
+    #endif
+
+    #if defined(UBRRH) && defined(UBRRL)
+      #define DMX_UBRRH UBRRH
+      #define DMX_UBRRL UBRRL
+    #elif defined(UBRR0H) && defined(UBRR0L)
+      #define DMX_UBRRH UBRR0H
+      #define DMX_UBRRL UBRR0L
+    #endif
+
+    #if defined(UCSRA)
+      #define DMX_UCSRA UCSRA
+    #elif defined(UCSR0A)
+      #define DMX_UCSRA UCSR0A
+    #endif
+
+    #if defined(UCSRB)
+       #define DMX_UCSRB UCSRB
+    #elif defined (UCSR0B)
+       #define DMX_UCSRB UCSR0B
+    #endif
+
+    #if defined(TXEN) && defined(TXCIE)
+        #define DMX_TXEN TXEN
+        #define DMX_TXCIE TXCIE
+    #elif defined(TXEN0) && defined(TXCIE0)
+        #define DMX_TXEN TXEN0
+        #define DMX_TXCIE TXCIE0
+    #endif
+
+    #if defined(RXEN) && defined(RXCIE)
+        #define DMX_RXEN RXEN
+        #define DMX_RXCIE RXCIE
+    #elif defined(RXEN0) && defined(RXCIE0)
+        #define DMX_RXEN RXEN0
+        #define DMX_RXCIE RXCIE0
+    #endif
+
+    #if defined(FE)
+      #define DMX_FE FE
+    #elif defined(FE0)
+      #define DMX_FE FE0
+    #endif
+
+    #define RX_PIN 0
+    #define TX_PIN 1
+
+#elif defined (USE_DMX_SERIAL_1)
+    #define USART_RX USART1_RX_vect
+    #define USART_TX USART1_TX_vect
+    #define DMX_UDR UDR1
+    #define DMX_UBRRH UBRR1H
+    #define DMX_UBRRL UBRR1L
+    #define DMX_UCSRA UCSR1A
+    #define DMX_UCSRB UCSR1B
+    #define DMX_TXEN TXEN1
+    #define DMX_TXCIE TXCIE1
+    #define DMX_RXEN RXEN1
+    #define DMX_RXCIE RXCIE1
+    #define DMX_FE FE1
+    #define RX_PIN 19
+    #define TX_PIN 18
+#elif defined (USE_DMX_SERIAL_2)
+    #define USART_RX USART2_RX_vect
+    #define USART_TX USART2_TX_vect
+    #define DMX_UDR UDR2
+    #define DMX_UBRRH UBRR2H
+    #define DMX_UBRRL UBRR2L
+    #define DMX_UCSRA UCSR2A
+    #define DMX_UCSRB UCSR2B
+    #define DMX_TXEN TXEN2
+    #define DMX_TXCIE TXCIE2
+    #define DMX_RXEN RXEN2
+    #define DMX_RXCIE RXCIE2
+    #define DMX_FE FE2
+    #define RX_PIN 17
+    #define TX_PIN 16
+#elif defined (USE_DMX_SERIAL_3)
+    #define USART_RX USART3_RX_vect
+    #define USART_TX USART3_TX_vect
+    #define DMX_UDR UDR3
+    #define DMX_UBRRH UBRR3H
+    #define DMX_UBRRL UBRR3L
+    #define DMX_UCSRA UCSR3A
+    #define DMX_UCSRB UCSR3B
+    #define DMX_TXEN TXEN3
+    #define DMX_TXCIE TXCIE3
+    #define DMX_RXEN RXEN3
+    #define DMX_RXCIE RXCIE3
+    #define DMX_FE FE3
+    #define RX_PIN 14
+    #define TX_PIN 15
 #endif
 
-
-#if defined(UBRRH) && defined(UBRRL)
-  #define DMX_UBRRH UBRRH
-  #define DMX_UBRRL UBRRL
-#elif defined(UBRR0H) && defined(UBRR0L)
-  #define DMX_UBRRH UBRR0H
-  #define DMX_UBRRL UBRR0L
-#endif
-
-#if defined(UCSRA)
-  #define DMX_UCSRA UCSRA
-#elif defined(UCSR0A)
-  #define DMX_UCSRA UCSR0A
-#endif
-
-#if defined(FE)
-  #define DMX_FE FE
-#elif defined(FE0)
-  #define DMX_FE FE0
-#endif
 
 #define LOWBYTE(v)   ((uint8_t) (v))
 #define HIGHBYTE(v)  ((uint8_t) (((uint16_t) (v)) >> 8))
@@ -291,31 +365,23 @@ void DMX_Master::breakAndContinue ( uint8_t breakLength_us )
     // Only execute if we are the controlling master object
     if ( __dmx_master == this && __isr_txState == isr::DmxBreakManual )
     {
-        pinMode ( 1, OUTPUT );
-        digitalWrite ( 1, LOW );                    // Begin BREAK                               
+        pinMode ( TX_PIN, OUTPUT );
+        digitalWrite ( TX_PIN, LOW );               // Begin BREAK                               
 
         _delay_us ( breakLength_us );
 
         // Turn TX Pin into Logic HIGH
-        digitalWrite ( 1, HIGH );                   // END BREAK
+        digitalWrite ( TX_PIN, HIGH );              // END BREAK
 
         __isr_txState = isr::DmxStartByte;
    
         // TX Enable
-        #if defined(UCSRC) && defined(UCSRB)
-	        UCSRB |= (1<<TXEN);								
-        #elif defined(UCSR0C) && defined(UCSR0B)
-	        UCSR0B |= (1<<TXEN0);
-        #endif 
+        DMX_UCSRB |= (1<<DMX_TXEN);
 
         _delay_us ( 12 );                           // MAB 12µSec
         
         // TX Interupt enable
-        #if defined(UCSRC) && defined(UCSRB)
-	        UCSRB |= (1<<TXCIE);								
-        #elif defined(UCSR0C) && defined(UCSR0B)
-	        UCSR0B |= (1<<TXCIE0);
-        #endif 
+        DMX_UCSRB |= (1<<DMX_TXCIE);
     }
 }
 
@@ -905,11 +971,19 @@ void SetISRMode ( isr::isrMode mode )
 {
     uint8_t readEnable;
 
-#if defined(UCSRB) && defined (UCSRC)
+#if defined(USE_DMX_SERIAL_0)
+  #if defined(UCSRB) && defined (UCSRC)
     UCSRC |= (1<<UMSEL)|(3<<UCSZ0)|(1<<USBS);
-#elif defined(UCSR0B) && defined (UCSR0C)
+  #elif defined(UCSR0B) && defined (UCSR0C)
     UCSR0C |= (3<<UCSZ00)|(1<<USBS0);  
-#endif                
+  #endif                
+#elif defined(USE_DMX_SERIAL_1)
+    UCSR1C |= (3<<UCSZ10)|(1<<USBS1);
+#elif defined(USE_DMX_SERIAL_2)
+    UCSR2C |= (3<<UCSZ20)|(1<<USBS2);
+#elif defined(USE_DMX_SERIAL_3)
+    UCSR3C |= (3<<UCSZ30)|(1<<USBS3);
+#endif
 
     switch ( mode )
     {
@@ -928,51 +1002,35 @@ void SetISRMode ( isr::isrMode mode )
 
             // Prepare before kicking off ISR
 	        //DMX_UDR             = 0x0;
-	        __isr_rxState       = isr::Idle;        
-            readEnable          = LOW; 
-            #if defined(UCSRB)
-        	    UCSRB  = (1<<RXCIE)|(1<<RXEN);	
-            #elif defined(UCSR0B)
-        	    UCSR0B = (1<<RXCIE0)|(1<<RXEN0);        // Enable receive
-            #endif                
+	        __isr_rxState   = isr::Idle;        
+            readEnable      = LOW; 
+            DMX_UCSRB       = (1<<DMX_RXCIE) | (1<<DMX_RXEN);	
             break;
 
         case isr::DMXTransmit:
             DMX_UDR         = 0x0;                              
             readEnable      = HIGH;
             __isr_txState   = isr::DmxBreak; 
-            #if defined(UCSRB)
-	            UCSRB  = (1<<TXEN) |(1<<TXCIE);								
-            #elif defined(UCSR0B)
-	            UCSR0B = (1<<TXEN0) |(1<<TXCIE0);
-            #endif 
+            DMX_UCSRB       = (1<<DMX_TXEN) | (1<<DMX_TXCIE);
             break;
 
         case isr::DMXTransmitManual:
-            DMX_UBRRH = (unsigned char)(((F_CPU + DMX_BAUD_RATE * 8L) / (DMX_BAUD_RATE * 16L) - 1)>>8);
-    	    DMX_UBRRL = (unsigned char) ((F_CPU + DMX_BAUD_RATE * 8L) / (DMX_BAUD_RATE * 16L) - 1);	
-            DMX_UDR = 0x0;
-            #if defined(UCSRB)
-                UCSRB  = 0x0; 
-            #elif defined(UCSR0B)
-                UCSR0B = 0x0; 
-            #endif    
+            DMX_UBRRH       = (unsigned char)(((F_CPU + DMX_BAUD_RATE * 8L) / (DMX_BAUD_RATE * 16L) - 1)>>8);
+    	    DMX_UBRRL       = (unsigned char) ((F_CPU + DMX_BAUD_RATE * 8L) / (DMX_BAUD_RATE * 16L) - 1);	
+            DMX_UDR         = 0x0;
+            DMX_UCSRB       = 0x0;
             readEnable      = HIGH;
              __isr_txState  = isr::DmxBreakManual;
             break;
 
         case isr::RDMTransmit:
             // If read enable pin is assigned
-            DMX_UBRRH = (unsigned char)(((F_CPU + DMX_BREAK_RATE * 8L) / (DMX_BREAK_RATE * 16L) - 1)>>8);
-            DMX_UBRRL = (unsigned char) ((F_CPU + DMX_BREAK_RATE * 8L) / (DMX_BREAK_RATE * 16L) - 1);
+            DMX_UBRRH       = (unsigned char)(((F_CPU + DMX_BREAK_RATE * 8L) / (DMX_BREAK_RATE * 16L) - 1)>>8);
+            DMX_UBRRL       = (unsigned char) ((F_CPU + DMX_BREAK_RATE * 8L) / (DMX_BREAK_RATE * 16L) - 1);
             readEnable      = HIGH;
             __isr_txState   = isr::RdmStartByte; 
-            #if defined(UCSRB)
-	            UCSRB  = (1<<TXEN) |(1<<TXCIE);								
-            #elif defined(UCSR0B)
-	            UCSR0B = (1<<TXEN0) |(1<<TXCIE0);
-            #endif 
-            DMX_UDR=0;
+            DMX_UCSRB       = (1<<DMX_TXEN) | (1<<DMX_TXCIE);
+            DMX_UDR         = 0x0;
             break;
     }
 
@@ -994,7 +1052,7 @@ ISR (USART_TX)
 	case isr::DmxBreak:
 		DMX_UBRRH = (unsigned char)(((F_CPU + DMX_BREAK_RATE * 8L) / (DMX_BREAK_RATE * 16L) - 1)>>8);
         DMX_UBRRL = (unsigned char) ((F_CPU + DMX_BREAK_RATE * 8L) / (DMX_BREAK_RATE * 16L) - 1);
-        DMX_UDR = 0x0;
+        DMX_UDR   = 0x0;
         
         if ( __isr_txState ==  isr::DmxBreak )
             __isr_txState = isr::DmxStartByte;
