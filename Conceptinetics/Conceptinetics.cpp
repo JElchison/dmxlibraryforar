@@ -386,7 +386,7 @@ void DMX_Master::breakAndContinue ( uint8_t breakLength_us )
 }
 
 
-void (*DMX_Slave::event_onFrameReceived)(void);
+void (*DMX_Slave::event_onFrameReceived)(unsigned short channelsReceived);
 
 
 DMX_Slave::DMX_Slave ( DMX_FrameBuffer &buffer, int readEnablePin )
@@ -447,7 +447,7 @@ void DMX_Slave::setStartAddress ( uint16_t addr )
     m_startAddress = addr;
 }
 
-void DMX_Slave::onReceiveComplete ( void (*func)(void) )
+void DMX_Slave::onReceiveComplete ( void (*func)(unsigned short) )
 {
     event_onFrameReceived = func;
 }
@@ -458,7 +458,15 @@ bool DMX_Slave::processIncoming ( uint8_t val, bool first )
     static uint16_t idx;
     bool            rval = false;
 
-    if ( first ) m_state = dmx::dmxStartByte;
+    if ( first )
+    {
+        // We could have received less channels then we
+        // expected.. but still is a complete frame
+        if (m_state == dmx::dmxData && event_onFrameReceived)
+            event_onFrameReceived (idx);
+            
+        m_state = dmx::dmxStartByte;  
+    } 
 
     switch ( m_state )
     {
@@ -481,7 +489,7 @@ bool DMX_Slave::processIncoming ( uint8_t val, bool first )
 
                 // If a onFrameReceived callback is register...
                 if (event_onFrameReceived)
-                    event_onFrameReceived();
+                    event_onFrameReceived (idx-2);
                 
                 rval = true;
             }

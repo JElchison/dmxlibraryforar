@@ -115,7 +115,7 @@ void loop()
     
 }
 
-void OnFrameReceiveComplete (void)
+void OnFrameReceiveComplete (unsigned short channelsReceived)
 {
   lastFrameReceivedTime = millis ();
 }

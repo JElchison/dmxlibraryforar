@@ -67,8 +67,8 @@
 // Define which serial port to use as DMX port, only one can be 
 // selected at the time by uncommenting one of the following
 // lines
-#define USE_DMX_SERIAL_0
-//#define USE_DMX_SERIAL_1
+//#define USE_DMX_SERIAL_0
+#define USE_DMX_SERIAL_1
 //#define USE_DMX_SERIAL_2
 //#define USE_DMX_SERIAL_3
 
@@ -218,7 +218,7 @@ class DMX_Slave : public DMX_FrameBuffer
 
         // Register on receive complete callback in case
         // of time critical applications
-        void onReceiveComplete ( void (*func)(void) );
+        void onReceiveComplete ( void (*func)(unsigned short) );
 
     protected:
 
@@ -227,7 +227,7 @@ class DMX_Slave : public DMX_FrameBuffer
         uint16_t        m_startAddress;     // Slave start address
         dmx::dmxState   m_state;
 
-        static void (*event_onFrameReceived)(void);
+        static void (*event_onFrameReceived)(unsigned short channelsReceived);
 };
 
 
