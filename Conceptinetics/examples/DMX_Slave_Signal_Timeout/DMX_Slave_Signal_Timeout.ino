@@ -117,6 +117,18 @@ void loop()
 
 void OnFrameReceiveComplete (unsigned short channelsReceived)
 {
+  if ( channelsReceived == DMX_SLAVE_CHANNELS)
+  {
+    // All slave channels have been received
+  }
+  else
+  {
+    // We have received a frame but not all channels we where 
+    // waiting for, master might have transmitted less
+    // channels
+  }
+
+  // Update receive time to determine signal timeout
   lastFrameReceivedTime = millis ();
 }
 
