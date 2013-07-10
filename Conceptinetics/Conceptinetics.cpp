@@ -368,7 +368,8 @@ void DMX_Master::breakAndContinue ( uint8_t breakLength_us )
         pinMode ( TX_PIN, OUTPUT );
         digitalWrite ( TX_PIN, LOW );               // Begin BREAK                               
 
-        _delay_us ( breakLength_us );
+        for (uint8_t bl=0; bl<breakLength_us; bl++)
+            _delay_us ( 1 );
 
         // Turn TX Pin into Logic HIGH
         digitalWrite ( TX_PIN, HIGH );              // END BREAK
