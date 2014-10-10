@@ -53,7 +53,7 @@
 // Speed your Arduino is running on in Hz.
 #define F_OSC 				    16000000UL
 
-// DMX Baudrate, this should be 25000
+// DMX Baudrate, this should be 250000
 #define DMX_BAUD_RATE 		    250000
 
 // The baudrate used to automaticly generate a break within
