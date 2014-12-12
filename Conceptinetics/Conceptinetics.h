@@ -23,7 +23,7 @@
   - Arduino UNO R3 using a CTC-DRA-13-1 ISOLATED DMX-RDM SHIELD 
   - Arduino MEGA2560 R3 using a CTC-DRA-13-1 ISOLATED DMX-RDM SHIELD 
 
-  - CTC-DRA-10-1 is the Non-isolated costs effective DMX-RDM shield 
+  - CTC-DRA-10-1 is the non-isolated cost-effective DMX-RDM shield
 */
 
 
@@ -39,7 +39,7 @@
 #define DMX_MAX_FRAMESIZE       513     // Startbyte + 512 Slots
 #define DMX_MIN_FRAMESIZE       2       // Startbyte + 1 Slot
 
-#define DMX_MAX_FRAMECHANNELS   512     // Maxmim number of channer per frame
+#define DMX_MAX_FRAMECHANNELS   512     // maximum number of channels per frame
 
 #define DMX_STARTCODE_SIZE      1       // Size of startcode in bytes
 
@@ -47,21 +47,21 @@
 #define RDM_START_CODE          0xcc    // Start code for a RDM frame
 
 // Uncomment to enable Inter slot delay ) (avg < 76uSec) ... 
-// mimum is zero according to specification
+// minimum is zero according to specification
 // #define DMX_IBG				    10      // Inter slot time
 
 // Speed your Arduino is running on in Hz.
 #define F_OSC 				    16000000UL
 
-// DMX Baudrate, this should be 250000
+// DMX baud rate, this should be 250000
 #define DMX_BAUD_RATE 		    250000
 
-// The baudrate used to automaticly generate a break within
+// The baud rate used to automatically generate a break within
 // your ISR.. make it lower to generate longer breaks
 #define DMX_BREAK_RATE 	 	    99900       
 
-// Tabel 3-2 ANSI_E1-20-2010 
-// Minimum time to allow the datalink to 'turn arround'
+// Table 3-2 ANSI_E1-20-2010
+// Minimum time to allow the datalink to 'turn around'
 #define MIN_RESPONDER_PACKET_SPACING_USEC   170 /*176*/
 
 #if !defined(USE_DMX_SERIAL_0) && !defined(USE_DMX_SERIAL_1) && !defined(USE_DMX_SERIAL_2) && !defined(USE_DMX_SERIAL_3)
